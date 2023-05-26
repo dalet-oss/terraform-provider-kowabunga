@@ -5,20 +5,26 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 
 	"github.com/dalet-oss/kowabunga-api/client/region"
+	"github.com/dalet-oss/kowabunga-api/client/zone"
 	"github.com/dalet-oss/kowabunga-api/models"
 )
 
-func resourceRegion() *schema.Resource {
+func resourceZone() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceRegionCreate,
-		Read:   resourceRegionRead,
-		Update: resourceRegionUpdate,
-		Delete: resourceRegionDelete,
+		Create: resourceZoneCreate,
+		Read:   resourceZoneRead,
+		Update: resourceZoneUpdate,
+		Delete: resourceZoneDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
 
 		Schema: map[string]*schema.Schema{
+			KeyRegion: {
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validation.All(validation.StringIsNotEmpty, validation.StringIsNotWhiteSpace),
+			},
 			KeyName: {
 				Type:         schema.TypeString,
 				Required:     true,
@@ -32,16 +38,16 @@ func resourceRegion() *schema.Resource {
 	}
 }
 
-func newRegion(d *schema.ResourceData) models.Region {
+func newZone(d *schema.ResourceData) models.Zone {
 	name := d.Get(KeyName).(string)
 	desc := d.Get(KeyDesc).(string)
-	return models.Region{
+	return models.Zone{
 		Name:        name,
 		Description: desc,
 	}
 }
 
-func regionToResource(r *models.Region, d *schema.ResourceData) error {
+func zoneToResource(r *models.Zone, d *schema.ResourceData) error {
 	// set object params
 	err := d.Set(KeyName, r.Name)
 	if err != nil {
@@ -54,50 +60,56 @@ func regionToResource(r *models.Region, d *schema.ResourceData) error {
 	return nil
 }
 
-func resourceRegionCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
-	// create a new region
-	rg := newRegion(d)
-	params := region.NewCreateRegionParams().WithBody(&rg)
-	r, err := pconf.K.Region.CreateRegion(params, nil)
+	// find parent region
+	regionId, err := regionIDFromID(d, pconf)
+	if err != nil {
+		return err
+	}
+
+	// create a new zone
+	z := newZone(d)
+	params := region.NewCreateZoneParams().WithRegionID(regionId).WithBody(&z)
+	zn, err := pconf.K.Region.CreateZone(params, nil)
 	if err != nil {
 		return err
 	}
 
 	// set resource ID accordingly
-	d.SetId(r.Payload.ID)
+	d.SetId(zn.Payload.ID)
 
 	return nil
 }
 
-func resourceRegionRead(d *schema.ResourceData, meta interface{}) error {
+func resourceZoneRead(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
-	params := region.NewGetRegionParams().WithRegionID(d.Id())
-	r, err := pconf.K.Region.GetRegion(params, nil)
+	params := zone.NewGetZoneParams().WithZoneID(d.Id())
+	z, err := pconf.K.Zone.GetZone(params, nil)
 	if err != nil {
 		return err
 	}
 
 	// set object params
-	return regionToResource(r.Payload, d)
+	return zoneToResource(z.Payload, d)
 }
 
-func resourceRegionDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceZoneDelete(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
-	params := region.NewDeleteRegionParams().WithRegionID(d.Id())
-	_, err := pconf.K.Region.DeleteRegion(params, nil)
+	params := zone.NewDeleteZoneParams().WithZoneID(d.Id())
+	_, err := pconf.K.Zone.DeleteZone(params, nil)
 	if err != nil {
 		return err
 	}
@@ -105,16 +117,16 @@ func resourceRegionDelete(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceRegionUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceZoneUpdate(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
 	// update an existing region
-	rg := newRegion(d)
-	params := region.NewUpdateRegionParams().WithRegionID(d.Id()).WithBody(&rg)
-	_, err := pconf.K.Region.UpdateRegion(params, nil)
+	z := newZone(d)
+	params := zone.NewUpdateZoneParams().WithZoneID(d.Id()).WithBody(&z)
+	_, err := pconf.K.Zone.UpdateZone(params, nil)
 	if err != nil {
 		return err
 	}
