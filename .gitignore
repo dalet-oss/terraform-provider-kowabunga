@@ -1,3 +1,4 @@
+bin
 terraform-provider-kowabunga
 sample.tf
 terraform.tfstate*
