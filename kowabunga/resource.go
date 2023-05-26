@@ -6,16 +6,25 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 
 	"github.com/dalet-oss/kowabunga-api/client/region"
+	"github.com/dalet-oss/kowabunga-api/client/zone"
 )
 
 const (
-	KeyName   = "name"
-	KeyDesc   = "desc"
-	KeyRegion = "region"
+	KeyName     = "name"
+	KeyDesc     = "desc"
+	KeyRegion   = "region"
+	KeyZone     = "zone"
+	KeyProtocol = "protocol"
+	KeyAddress  = "address"
+	KeyPort     = "port"
+	KeyTlsKey   = "key"
+	KeyTlsCert  = "cert"
+	KeyTlsCA    = "ca"
 )
 
 const (
 	ErrorUnknownRegion = "Unknown region"
+	ErrorUnknownZone   = "Unknown zone"
 )
 
 func regionIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (string, error) {
@@ -42,4 +51,30 @@ func regionIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (strin
 	}
 
 	return "", fmt.Errorf(ErrorUnknownRegion)
+}
+
+func zoneIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (string, error) {
+	id := d.Get(KeyZone).(string)
+
+	// let's suppose param is a proper zone ID
+	p1 := zone.NewGetZoneParams().WithZoneID(id)
+	z, err := pconf.K.Zone.GetZone(p1, nil)
+	if err == nil {
+		return z.Payload.ID, nil
+	}
+
+	// fall back, it may be a zone name then, finds its associated ID
+	p2 := zone.NewGetAllZonesParams()
+	zones, err := pconf.K.Zone.GetAllZones(p2, nil)
+	if err == nil {
+		for _, zn := range zones.Payload {
+			p := zone.NewGetZoneParams().WithZoneID(zn)
+			z, err := pconf.K.Zone.GetZone(p, nil)
+			if err == nil && z.Payload.Name == id {
+				return z.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownZone)
 }

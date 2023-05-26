@@ -55,6 +55,7 @@ func Provider() terraform.ResourceProvider {
 		ResourcesMap: map[string]*schema.Resource{
 			"kowabunga_region": resourceRegion(),
 			"kowabunga_zone":   resourceZone(),
+			"kowabunga_host":   resourceHost(),
 		},
 
 		ConfigureFunc: providerConfigure,
