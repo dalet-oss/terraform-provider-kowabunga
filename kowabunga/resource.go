@@ -20,6 +20,8 @@ const (
 	KeyTlsKey   = "key"
 	KeyTlsCert  = "cert"
 	KeyTlsCA    = "ca"
+	KeyPool     = "pool"
+	KeySecret   = "secret"
 )
 
 const (
