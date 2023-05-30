@@ -4,17 +4,17 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 
-	"github.com/dalet-oss/kowabunga-api/client/pool"
+	"github.com/dalet-oss/kowabunga-api/client/vnet"
 	"github.com/dalet-oss/kowabunga-api/client/zone"
 	"github.com/dalet-oss/kowabunga-api/models"
 )
 
-func resourcePool() *schema.Resource {
+func resourceVNet() *schema.Resource {
 	return &schema.Resource{
-		Create: resourcePoolCreate,
-		Read:   resourcePoolRead,
-		Update: resourcePoolUpdate,
-		Delete: resourcePoolDelete,
+		Create: resourceVNetCreate,
+		Read:   resourceVNetRead,
+		Update: resourceVNetUpdate,
+		Delete: resourceVNetDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -34,78 +34,88 @@ func resourcePool() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-			KeyPool: {
+			KeySubnetID: {
+				Type:     schema.TypeInt,
+				Required: true,
+			},
+			KeyInterface: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ValidateFunc: validation.All(validation.StringIsNotEmpty, validation.StringIsNotWhiteSpace),
 			},
-			KeyAddress: {
+			KeyCIDR: {
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validation.All(validation.StringIsNotEmpty, validation.StringIsNotWhiteSpace),
+				ValidateFunc: validation.IsCIDR,
 			},
-			KeyPort: {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				ValidateFunc: validation.IsPortNumber,
-			},
-			KeySecret: {
+			KeyGateway: {
 				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validation.All(validation.StringIsNotEmpty, validation.StringIsNotWhiteSpace),
+				Required:     true,
+				ValidateFunc: validation.IsIPv4Address,
+			},
+			KeyDNS: {
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validation.IsIPv4Address,
 			},
 		},
 	}
 }
 
-func newPool(d *schema.ResourceData) models.StoragePool {
+func newVNet(d *schema.ResourceData) models.VNet {
 	name := d.Get(KeyName).(string)
 	desc := d.Get(KeyDesc).(string)
-	pool := d.Get(KeyPool).(string)
-	address := d.Get(KeyAddress).(string)
-	port := int64(d.Get(KeyPort).(int))
-	secret := d.Get(KeySecret).(string)
+	subnetId := int64(d.Get(KeySubnetID).(int))
+	itf := d.Get(KeyInterface).(string)
+	cidr := d.Get(KeyCIDR).(string)
+	gw := d.Get(KeyGateway).(string)
+	dns := d.Get(KeyDNS).(string)
 
-	return models.StoragePool{
+	return models.VNet{
 		Name:        &name,
 		Description: desc,
-		Pool:        &pool,
-		Address:     &address,
-		Port:        &port,
-		SecretUUID:  secret,
+		SubnetID:    &subnetId,
+		Interface:   &itf,
+		Cidr:        &cidr,
+		Gateway:     &gw,
+		DNS:         &dns,
 	}
 }
 
-func poolToResource(p *models.StoragePool, d *schema.ResourceData) error {
+func vnetToResource(v *models.VNet, d *schema.ResourceData) error {
 	// set object params
-	err := d.Set(KeyName, *p.Name)
+	err := d.Set(KeyName, *v.Name)
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeyDesc, p.Description)
+	err = d.Set(KeyDesc, v.Description)
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeyPool, *p.Pool)
+	err = d.Set(KeySubnetID, *v.SubnetID)
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeyAddress, *p.Address)
+	err = d.Set(KeyInterface, *v.Interface)
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeyPort, *p.Port)
+	err = d.Set(KeyCIDR, *v.Cidr)
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeySecret, p.SecretUUID)
+	err = d.Set(KeyGateway, v.Gateway)
+	if err != nil {
+		return err
+	}
+	err = d.Set(KeyDNS, v.DNS)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func resourcePoolCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -117,44 +127,44 @@ func resourcePoolCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	// create a new pool
-	cfg := newPool(d)
-	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg)
-	p, err := pconf.K.Zone.CreatePool(params, nil)
+	// create a new virtual network
+	cfg := newVNet(d)
+	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg)
+	v, err := pconf.K.Zone.CreateVNet(params, nil)
 	if err != nil {
 		return err
 	}
 
 	// set resource ID accordingly
-	d.SetId(p.Payload.ID)
+	d.SetId(v.Payload.ID)
 
 	return nil
 }
 
-func resourcePoolRead(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetRead(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
-	params := pool.NewGetPoolParams().WithPoolID(d.Id())
-	p, err := pconf.K.Pool.GetPool(params, nil)
+	params := vnet.NewGetVNetParams().WithVnetID(d.Id())
+	v, err := pconf.K.Vnet.GetVNet(params, nil)
 	if err != nil {
 		return err
 	}
 
 	// set object params
-	return poolToResource(p.Payload, d)
+	return vnetToResource(v.Payload, d)
 }
 
-func resourcePoolDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetDelete(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
-	params := pool.NewDeletePoolParams().WithPoolID(d.Id())
-	_, err := pconf.K.Pool.DeletePool(params, nil)
+	params := vnet.NewDeleteVNetParams().WithVnetID(d.Id())
+	_, err := pconf.K.Vnet.DeleteVNet(params, nil)
 	if err != nil {
 		return err
 	}
@@ -162,16 +172,16 @@ func resourcePoolDelete(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourcePoolUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetUpdate(d *schema.ResourceData, meta interface{}) error {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
 	// update an existing region
-	cfg := newPool(d)
-	params := pool.NewUpdatePoolParams().WithPoolID(d.Id()).WithBody(&cfg)
-	_, err := pconf.K.Pool.UpdatePool(params, nil)
+	cfg := newVNet(d)
+	params := vnet.NewUpdateVNetParams().WithVnetID(d.Id()).WithBody(&cfg)
+	_, err := pconf.K.Vnet.UpdateVNet(params, nil)
 	if err != nil {
 		return err
 	}

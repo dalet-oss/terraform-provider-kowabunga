@@ -10,18 +10,23 @@ import (
 )
 
 const (
-	KeyName     = "name"
-	KeyDesc     = "desc"
-	KeyRegion   = "region"
-	KeyZone     = "zone"
-	KeyProtocol = "protocol"
-	KeyAddress  = "address"
-	KeyPort     = "port"
-	KeyTlsKey   = "key"
-	KeyTlsCert  = "cert"
-	KeyTlsCA    = "ca"
-	KeyPool     = "pool"
-	KeySecret   = "secret"
+	KeyName      = "name"
+	KeyDesc      = "desc"
+	KeyRegion    = "region"
+	KeyZone      = "zone"
+	KeyProtocol  = "protocol"
+	KeyAddress   = "address"
+	KeyPort      = "port"
+	KeyTlsKey    = "key"
+	KeyTlsCert   = "cert"
+	KeyTlsCA     = "ca"
+	KeyPool      = "pool"
+	KeySecret    = "secret"
+	KeySubnetID  = "subnet_id"
+	KeyInterface = "interface"
+	KeyCIDR      = "cidr"
+	KeyGateway   = "gateway"
+	KeyDNS       = "dns"
 )
 
 const (
