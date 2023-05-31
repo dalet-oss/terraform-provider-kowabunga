@@ -34,7 +34,7 @@ func resourceVNet() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-			KeySubnetID: {
+			KeyVLAN: {
 				Type:     schema.TypeInt,
 				Required: true,
 			},
@@ -43,20 +43,34 @@ func resourceVNet() *schema.Resource {
 				Required:     true,
 				ValidateFunc: validation.All(validation.StringIsNotEmpty, validation.StringIsNotWhiteSpace),
 			},
-			KeyCIDR: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.IsCIDR,
+			KeyPrivate: {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  true,
 			},
-			KeyGateway: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.IsIPv4Address,
-			},
-			KeyDNS: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.IsIPv4Address,
+			KeySubnet: {
+				Type:     schema.TypeList,
+				Optional: true,
+				ForceNew: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						KeyCIDR: {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.IsCIDR,
+						},
+						KeyGateway: {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.IsIPv4Address,
+						},
+						KeyDNS: {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.IsIPv4Address,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -65,21 +79,32 @@ func resourceVNet() *schema.Resource {
 func newVNet(d *schema.ResourceData) models.VNet {
 	name := d.Get(KeyName).(string)
 	desc := d.Get(KeyDesc).(string)
-	subnetId := int64(d.Get(KeySubnetID).(int))
+	vlan := int64(d.Get(KeyVLAN).(int))
 	itf := d.Get(KeyInterface).(string)
-	cidr := d.Get(KeyCIDR).(string)
-	gw := d.Get(KeyGateway).(string)
-	dns := d.Get(KeyDNS).(string)
+	private := d.Get(KeyPrivate).(bool)
 
-	return models.VNet{
+	vnet := models.VNet{
 		Name:        &name,
 		Description: desc,
-		SubnetID:    &subnetId,
+		Vlan:        &vlan,
 		Interface:   &itf,
-		Cidr:        &cidr,
-		Gateway:     &gw,
-		DNS:         &dns,
+		Private:     &private,
 	}
+
+	for _, s := range d.Get(KeySubnet).([]interface{}) {
+		sub := s.(map[string]interface{})
+		cidr := sub[KeyCIDR].(string)
+		gw := sub[KeyGateway].(string)
+		dns := sub[KeyDNS].(string)
+		subnet := models.Subnet{
+			Cidr:    &cidr,
+			Gateway: &gw,
+			DNS:     dns,
+		}
+		vnet.Subnets = append(vnet.Subnets, &subnet)
+	}
+
+	return vnet
 }
 
 func vnetToResource(v *models.VNet, d *schema.ResourceData) error {
@@ -92,7 +117,7 @@ func vnetToResource(v *models.VNet, d *schema.ResourceData) error {
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeySubnetID, *v.SubnetID)
+	err = d.Set(KeyVLAN, *v.Vlan)
 	if err != nil {
 		return err
 	}
@@ -100,18 +125,27 @@ func vnetToResource(v *models.VNet, d *schema.ResourceData) error {
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeyCIDR, *v.Cidr)
+	err = d.Set(KeyPrivate, *v.Private)
 	if err != nil {
 		return err
 	}
-	err = d.Set(KeyGateway, v.Gateway)
-	if err != nil {
-		return err
+
+	var subnets []map[string]interface{}
+	for _, s := range v.Subnets {
+		sub := map[string]interface{}{
+			KeyCIDR:    *s.Cidr,
+			KeyGateway: *s.Gateway,
+			KeyDNS:     s.DNS,
+		}
+		subnets = append(subnets, sub)
 	}
-	err = d.Set(KeyDNS, v.DNS)
-	if err != nil {
-		return err
+	if len(subnets) > 0 {
+		err := d.Set(KeySubnet, subnets)
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
