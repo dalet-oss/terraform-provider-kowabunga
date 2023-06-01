@@ -14,6 +14,7 @@ const (
 	KeyDesc      = "desc"
 	KeyRegion    = "region"
 	KeyZone      = "zone"
+	KeyToken     = "token"
 	KeyProtocol  = "protocol"
 	KeyAddress   = "address"
 	KeyPort      = "port"
