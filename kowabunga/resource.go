@@ -26,6 +26,7 @@ const (
 	KeyVLAN      = "vlan"
 	KeyInterface = "interface"
 	KeyPrivate   = "private"
+	KeyDefault   = "default"
 	KeySubnet    = "subnet"
 	KeyCIDR      = "cidr"
 	KeyGateway   = "gateway"

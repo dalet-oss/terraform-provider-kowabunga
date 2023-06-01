@@ -48,6 +48,11 @@ func resourceVNet() *schema.Resource {
 				Optional: true,
 				Default:  true,
 			},
+			KeyDefault: {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 			KeySubnet: {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -171,6 +176,13 @@ func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
 
 	// set resource ID accordingly
 	d.SetId(v.Payload.ID)
+
+	// set virtual network as default
+	params2 := zone.NewUpdateZoneDefaultVNetParams().WithZoneID(zoneId).WithVnetID(v.Payload.ID)
+	_, err = pconf.K.Zone.UpdateZoneDefaultVNet(params2, nil)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
