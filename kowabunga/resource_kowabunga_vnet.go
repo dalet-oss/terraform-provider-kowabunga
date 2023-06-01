@@ -178,10 +178,13 @@ func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
 	d.SetId(v.Payload.ID)
 
 	// set virtual network as default
-	params2 := zone.NewUpdateZoneDefaultVNetParams().WithZoneID(zoneId).WithVnetID(v.Payload.ID)
-	_, err = pconf.K.Zone.UpdateZoneDefaultVNet(params2, nil)
-	if err != nil {
-		return err
+	dflt := d.Get(KeyPrivate).(bool)
+	if dflt {
+		params2 := zone.NewUpdateZoneDefaultVNetParams().WithZoneID(zoneId).WithVnetID(v.Payload.ID)
+		_, err = pconf.K.Zone.UpdateZoneDefaultVNet(params2, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
