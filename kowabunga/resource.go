@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 
 	"github.com/dalet-oss/kowabunga-api/client/region"
+	"github.com/dalet-oss/kowabunga-api/client/vnet"
 	"github.com/dalet-oss/kowabunga-api/client/zone"
 )
 
@@ -31,11 +32,13 @@ const (
 	KeyCIDR      = "cidr"
 	KeyGateway   = "gateway"
 	KeyDNS       = "dns"
+	KeyVNet      = "vnet"
 )
 
 const (
 	ErrorUnknownRegion = "Unknown region"
 	ErrorUnknownZone   = "Unknown zone"
+	ErrorUnknownVNet   = "Unknown virtual network"
 )
 
 func regionIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (string, error) {
@@ -88,4 +91,30 @@ func zoneIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (string,
 	}
 
 	return "", fmt.Errorf(ErrorUnknownZone)
+}
+
+func vnetIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (string, error) {
+	id := d.Get(KeyVNet).(string)
+
+	// let's suppose param is a proper virtual network ID
+	p1 := vnet.NewGetVNetParams().WithVnetID(id)
+	v, err := pconf.K.Vnet.GetVNet(p1, nil)
+	if err == nil {
+		return v.Payload.ID, nil
+	}
+
+	// fall back, it may be a virtual network name then, finds its associated ID
+	p2 := vnet.NewGetAllVNetsParams()
+	vnets, err := pconf.K.Vnet.GetAllVNets(p2, nil)
+	if err == nil {
+		for _, vn := range vnets.Payload {
+			p := vnet.NewGetVNetParams().WithVnetID(vn)
+			v, err := pconf.K.Vnet.GetVNet(p, nil)
+			if err == nil && *v.Payload.Name == id {
+				return v.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownVNet)
 }

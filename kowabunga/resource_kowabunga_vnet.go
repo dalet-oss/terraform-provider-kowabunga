@@ -53,30 +53,6 @@ func resourceVNet() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
-			KeySubnet: {
-				Type:     schema.TypeList,
-				Optional: true,
-				ForceNew: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						KeyCIDR: {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.IsCIDR,
-						},
-						KeyGateway: {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.IsIPv4Address,
-						},
-						KeyDNS: {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.IsIPv4Address,
-						},
-					},
-				},
-			},
 		},
 	}
 }
@@ -88,28 +64,13 @@ func newVNet(d *schema.ResourceData) models.VNet {
 	itf := d.Get(KeyInterface).(string)
 	private := d.Get(KeyPrivate).(bool)
 
-	vnet := models.VNet{
+	return models.VNet{
 		Name:        &name,
 		Description: desc,
 		Vlan:        &vlan,
 		Interface:   &itf,
 		Private:     &private,
 	}
-
-	for _, s := range d.Get(KeySubnet).([]interface{}) {
-		sub := s.(map[string]interface{})
-		cidr := sub[KeyCIDR].(string)
-		gw := sub[KeyGateway].(string)
-		dns := sub[KeyDNS].(string)
-		subnet := models.Subnet{
-			Cidr:    &cidr,
-			Gateway: &gw,
-			DNS:     dns,
-		}
-		vnet.Subnets = append(vnet.Subnets, &subnet)
-	}
-
-	return vnet
 }
 
 func vnetToResource(v *models.VNet, d *schema.ResourceData) error {
@@ -133,22 +94,6 @@ func vnetToResource(v *models.VNet, d *schema.ResourceData) error {
 	err = d.Set(KeyPrivate, *v.Private)
 	if err != nil {
 		return err
-	}
-
-	var subnets []map[string]interface{}
-	for _, s := range v.Subnets {
-		sub := map[string]interface{}{
-			KeyCIDR:    *s.Cidr,
-			KeyGateway: *s.Gateway,
-			KeyDNS:     s.DNS,
-		}
-		subnets = append(subnets, sub)
-	}
-	if len(subnets) > 0 {
-		err := d.Set(KeySubnet, subnets)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -178,7 +123,7 @@ func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
 	d.SetId(v.Payload.ID)
 
 	// set virtual network as default
-	dflt := d.Get(KeyPrivate).(bool)
+	dflt := d.Get(KeyDefault).(bool)
 	if dflt {
 		params2 := zone.NewUpdateZoneDefaultVNetParams().WithZoneID(zoneId).WithVnetID(v.Payload.ID)
 		_, err = pconf.K.Zone.UpdateZoneDefaultVNet(params2, nil)
@@ -227,7 +172,7 @@ func resourceVNetUpdate(d *schema.ResourceData, meta interface{}) error {
 	pconf.Mutex.Lock()
 	defer pconf.Mutex.Unlock()
 
-	// update an existing region
+	// update an existing virtual network
 	cfg := newVNet(d)
 	params := vnet.NewUpdateVNetParams().WithVnetID(d.Id()).WithBody(&cfg)
 	_, err := pconf.K.Vnet.UpdateVNet(params, nil)

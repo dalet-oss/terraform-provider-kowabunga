@@ -59,6 +59,7 @@ func Provider() terraform.ResourceProvider {
 			"kowabunga_host":   resourceHost(),
 			"kowabunga_pool":   resourcePool(),
 			"kowabunga_vnet":   resourceVNet(),
+			"kowabunga_subnet": resourceSubnet(),
 		},
 
 		ConfigureFunc: providerConfigure,
