@@ -54,6 +54,11 @@ func resourcePool() *schema.Resource {
 				Optional:     true,
 				ValidateFunc: validation.All(validation.StringIsNotEmpty, validation.StringIsNotWhiteSpace),
 			},
+			KeyDefault: {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 		},
 	}
 }
@@ -127,6 +132,16 @@ func resourcePoolCreate(d *schema.ResourceData, meta interface{}) error {
 
 	// set resource ID accordingly
 	d.SetId(p.Payload.ID)
+
+	// set pool as default
+	dflt := d.Get(KeyDefault).(bool)
+	if dflt {
+		params2 := zone.NewUpdateZoneDefaultPoolParams().WithZoneID(zoneId).WithPoolID(p.Payload.ID)
+		_, err = pconf.K.Zone.UpdateZoneDefaultPool(params2, nil)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
