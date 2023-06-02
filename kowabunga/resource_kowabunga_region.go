@@ -36,14 +36,14 @@ func newRegion(d *schema.ResourceData) models.Region {
 	name := d.Get(KeyName).(string)
 	desc := d.Get(KeyDesc).(string)
 	return models.Region{
-		Name:        name,
+		Name:        &name,
 		Description: desc,
 	}
 }
 
 func regionToResource(r *models.Region, d *schema.ResourceData) error {
 	// set object params
-	err := d.Set(KeyName, r.Name)
+	err := d.Set(KeyName, *r.Name)
 	if err != nil {
 		return err
 	}

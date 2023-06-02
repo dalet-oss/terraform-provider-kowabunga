@@ -42,14 +42,14 @@ func newZone(d *schema.ResourceData) models.Zone {
 	name := d.Get(KeyName).(string)
 	desc := d.Get(KeyDesc).(string)
 	return models.Zone{
-		Name:        name,
+		Name:        &name,
 		Description: desc,
 	}
 }
 
 func zoneToResource(r *models.Zone, d *schema.ResourceData) error {
 	// set object params
-	err := d.Set(KeyName, r.Name)
+	err := d.Set(KeyName, *r.Name)
 	if err != nil {
 		return err
 	}

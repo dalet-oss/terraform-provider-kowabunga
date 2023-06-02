@@ -58,7 +58,7 @@ func regionIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (strin
 		for _, rg := range regions.Payload {
 			p := region.NewGetRegionParams().WithRegionID(rg)
 			r, err := pconf.K.Region.GetRegion(p, nil)
-			if err == nil && r.Payload.Name == id {
+			if err == nil && *r.Payload.Name == id {
 				return r.Payload.ID, nil
 			}
 		}
@@ -84,7 +84,7 @@ func zoneIDFromID(d *schema.ResourceData, pconf *ProviderConfiguration) (string,
 		for _, zn := range zones.Payload {
 			p := zone.NewGetZoneParams().WithZoneID(zn)
 			z, err := pconf.K.Zone.GetZone(p, nil)
-			if err == nil && z.Payload.Name == id {
+			if err == nil && *z.Payload.Name == id {
 				return z.Payload.ID, nil
 			}
 		}

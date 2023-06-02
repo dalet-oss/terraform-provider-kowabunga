@@ -70,20 +70,11 @@ func resourceHost() *schema.Resource {
 func newHost(d *schema.ResourceData) models.Host {
 	name := d.Get(KeyName).(string)
 	desc := d.Get(KeyDesc).(string)
-	return models.Host{
-		Name:        name,
-		Description: desc,
-	}
-}
-
-func newHostConfiguration(d *schema.ResourceData) models.HostConfiguration {
-	name := d.Get(KeyName).(string)
-	desc := d.Get(KeyDesc).(string)
 	protocol := d.Get(KeyProtocol).(string)
 	address := d.Get(KeyAddress).(string)
 	port := d.Get(KeyPort).(int)
 
-	hc := models.HostConfiguration{
+	hc := models.Host{
 		Name:        &name,
 		Description: desc,
 		Protocol:    &protocol,
@@ -91,11 +82,11 @@ func newHostConfiguration(d *schema.ResourceData) models.HostConfiguration {
 		Port:        int64(port),
 	}
 
-	if protocol == models.HostConfigurationProtocolTLS {
+	if protocol == models.HostProtocolTLS {
 		key := d.Get(KeyTlsKey).(string)
 		cert := d.Get(KeyTlsCert).(string)
 		ca := d.Get(KeyTlsCA).(string)
-		tls := models.HostConfigurationTLS{
+		tls := models.HostTLS{
 			Key:  &key,
 			Cert: &cert,
 			Ca:   &ca,
@@ -132,7 +123,7 @@ func resourceHostCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	// create a new host
-	h := newHostConfiguration(d)
+	h := newHost(d)
 	params := zone.NewCreateHostParams().WithZoneID(zoneId).WithBody(&h)
 	hs, err := pconf.K.Zone.CreateHost(params, nil)
 	if err != nil {
