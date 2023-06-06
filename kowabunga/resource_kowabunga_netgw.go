@@ -1,8 +1,11 @@
 package kowabunga
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/dalet-oss/kowabunga-api/client/netgw"
 	"github.com/dalet-oss/kowabunga-api/client/zone"
@@ -11,10 +14,10 @@ import (
 
 func resourceNetGW() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceNetGWCreate,
-		Read:   resourceNetGWRead,
-		Update: resourceNetGWUpdate,
-		Delete: resourceNetGWDelete,
+		CreateContext: resourceNetGWCreate,
+		ReadContext:   resourceNetGWRead,
+		UpdateContext: resourceNetGWUpdate,
+		DeleteContext: resourceNetGWDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -68,32 +71,32 @@ func newNetGW(d *schema.ResourceData) models.NetGW {
 	}
 }
 
-func gwToResource(gw *models.NetGW, d *schema.ResourceData) error {
+func gwToResource(gw *models.NetGW, d *schema.ResourceData) diag.Diagnostics {
 	// set object params
 	err := d.Set(KeyName, *gw.Name)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyDesc, gw.Description)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyAddress, *gw.Address)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyPort, *gw.Port)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyToken, *gw.Token)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	return nil
 }
 
-func resourceNetGWCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetGWCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -102,7 +105,7 @@ func resourceNetGWCreate(d *schema.ResourceData, meta interface{}) error {
 	// find parent zone
 	zoneId, err := zoneIDFromID(d, pconf)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// create a new network gateway
@@ -110,7 +113,7 @@ func resourceNetGWCreate(d *schema.ResourceData, meta interface{}) error {
 	params := zone.NewCreateNetGWParams().WithZoneID(zoneId).WithBody(&cfg)
 	gw, err := pconf.K.Zone.CreateNetGW(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set resource ID accordingly
@@ -119,7 +122,7 @@ func resourceNetGWCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceNetGWRead(d *schema.ResourceData, meta interface{}) error {
+func resourceNetGWRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -128,14 +131,14 @@ func resourceNetGWRead(d *schema.ResourceData, meta interface{}) error {
 	params := netgw.NewGetNetGWParams().WithNetgwID(d.Id())
 	gw, err := pconf.K.Netgw.GetNetGW(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set object params
 	return gwToResource(gw.Payload, d)
 }
 
-func resourceNetGWDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceNetGWDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -144,13 +147,13 @@ func resourceNetGWDelete(d *schema.ResourceData, meta interface{}) error {
 	params := netgw.NewDeleteNetGWParams().WithNetgwID(d.Id())
 	_, err := pconf.K.Netgw.DeleteNetGW(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-func resourceNetGWUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetGWUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -161,7 +164,7 @@ func resourceNetGWUpdate(d *schema.ResourceData, meta interface{}) error {
 	params := netgw.NewUpdateNetGWParams().WithNetgwID(d.Id()).WithBody(&cfg)
 	_, err := pconf.K.Netgw.UpdateNetGW(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil

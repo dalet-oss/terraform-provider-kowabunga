@@ -1,8 +1,11 @@
 package kowabunga
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/dalet-oss/kowabunga-api/client/pool"
 	"github.com/dalet-oss/kowabunga-api/client/zone"
@@ -11,10 +14,10 @@ import (
 
 func resourcePool() *schema.Resource {
 	return &schema.Resource{
-		Create: resourcePoolCreate,
-		Read:   resourcePoolRead,
-		Update: resourcePoolUpdate,
-		Delete: resourcePoolDelete,
+		CreateContext: resourcePoolCreate,
+		ReadContext:   resourcePoolRead,
+		UpdateContext: resourcePoolUpdate,
+		DeleteContext: resourcePoolDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -81,36 +84,36 @@ func newPool(d *schema.ResourceData) models.StoragePool {
 	}
 }
 
-func poolToResource(p *models.StoragePool, d *schema.ResourceData) error {
+func poolToResource(p *models.StoragePool, d *schema.ResourceData) diag.Diagnostics {
 	// set object params
 	err := d.Set(KeyName, *p.Name)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyDesc, p.Description)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyPool, *p.Pool)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyAddress, *p.Address)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyPort, *p.Port)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeySecret, p.SecretUUID)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	return nil
 }
 
-func resourcePoolCreate(d *schema.ResourceData, meta interface{}) error {
+func resourcePoolCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -119,7 +122,7 @@ func resourcePoolCreate(d *schema.ResourceData, meta interface{}) error {
 	// find parent zone
 	zoneId, err := zoneIDFromID(d, pconf)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// create a new pool
@@ -127,7 +130,7 @@ func resourcePoolCreate(d *schema.ResourceData, meta interface{}) error {
 	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg)
 	p, err := pconf.K.Zone.CreatePool(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set resource ID accordingly
@@ -139,14 +142,14 @@ func resourcePoolCreate(d *schema.ResourceData, meta interface{}) error {
 		params2 := zone.NewUpdateZoneDefaultPoolParams().WithZoneID(zoneId).WithPoolID(p.Payload.ID)
 		_, err = pconf.K.Zone.UpdateZoneDefaultPool(params2, nil)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 	}
 
 	return nil
 }
 
-func resourcePoolRead(d *schema.ResourceData, meta interface{}) error {
+func resourcePoolRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -155,14 +158,14 @@ func resourcePoolRead(d *schema.ResourceData, meta interface{}) error {
 	params := pool.NewGetPoolParams().WithPoolID(d.Id())
 	p, err := pconf.K.Pool.GetPool(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set object params
 	return poolToResource(p.Payload, d)
 }
 
-func resourcePoolDelete(d *schema.ResourceData, meta interface{}) error {
+func resourcePoolDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -171,13 +174,13 @@ func resourcePoolDelete(d *schema.ResourceData, meta interface{}) error {
 	params := pool.NewDeletePoolParams().WithPoolID(d.Id())
 	_, err := pconf.K.Pool.DeletePool(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-func resourcePoolUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourcePoolUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -188,7 +191,7 @@ func resourcePoolUpdate(d *schema.ResourceData, meta interface{}) error {
 	params := pool.NewUpdatePoolParams().WithPoolID(d.Id()).WithBody(&cfg)
 	_, err := pconf.K.Pool.UpdatePool(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil

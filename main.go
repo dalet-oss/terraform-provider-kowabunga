@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/dalet-oss/terraform-provider-kowabunga/kowabunga"
-	"github.com/hashicorp/terraform-plugin-sdk/plugin"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
 // Generate the Terraform provider documentation using `tfplugindocs`:

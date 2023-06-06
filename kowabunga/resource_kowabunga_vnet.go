@@ -1,8 +1,11 @@
 package kowabunga
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/dalet-oss/kowabunga-api/client/vnet"
 	"github.com/dalet-oss/kowabunga-api/client/zone"
@@ -11,10 +14,10 @@ import (
 
 func resourceVNet() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceVNetCreate,
-		Read:   resourceVNetRead,
-		Update: resourceVNetUpdate,
-		Delete: resourceVNetDelete,
+		CreateContext: resourceVNetCreate,
+		ReadContext:   resourceVNetRead,
+		UpdateContext: resourceVNetUpdate,
+		DeleteContext: resourceVNetDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -73,33 +76,33 @@ func newVNet(d *schema.ResourceData) models.VNet {
 	}
 }
 
-func vnetToResource(v *models.VNet, d *schema.ResourceData) error {
+func vnetToResource(v *models.VNet, d *schema.ResourceData) diag.Diagnostics {
 	// set object params
 	err := d.Set(KeyName, *v.Name)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyDesc, v.Description)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyVLAN, *v.Vlan)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyInterface, *v.Interface)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyPrivate, *v.Private)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -108,7 +111,7 @@ func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
 	// find parent zone
 	zoneId, err := zoneIDFromID(d, pconf)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// create a new virtual network
@@ -116,7 +119,7 @@ func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
 	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg)
 	v, err := pconf.K.Zone.CreateVNet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set resource ID accordingly
@@ -128,14 +131,14 @@ func resourceVNetCreate(d *schema.ResourceData, meta interface{}) error {
 		params2 := zone.NewUpdateZoneDefaultVNetParams().WithZoneID(zoneId).WithVnetID(v.Payload.ID)
 		_, err = pconf.K.Zone.UpdateZoneDefaultVNet(params2, nil)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 	}
 
 	return nil
 }
 
-func resourceVNetRead(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -144,14 +147,14 @@ func resourceVNetRead(d *schema.ResourceData, meta interface{}) error {
 	params := vnet.NewGetVNetParams().WithVnetID(d.Id())
 	v, err := pconf.K.Vnet.GetVNet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set object params
 	return vnetToResource(v.Payload, d)
 }
 
-func resourceVNetDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -160,13 +163,13 @@ func resourceVNetDelete(d *schema.ResourceData, meta interface{}) error {
 	params := vnet.NewDeleteVNetParams().WithVnetID(d.Id())
 	_, err := pconf.K.Vnet.DeleteVNet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-func resourceVNetUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceVNetUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -177,7 +180,7 @@ func resourceVNetUpdate(d *schema.ResourceData, meta interface{}) error {
 	params := vnet.NewUpdateVNetParams().WithVnetID(d.Id()).WithBody(&cfg)
 	_, err := pconf.K.Vnet.UpdateVNet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil

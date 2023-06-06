@@ -1,8 +1,11 @@
 package kowabunga
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/dalet-oss/kowabunga-api/client/region"
 	"github.com/dalet-oss/kowabunga-api/models"
@@ -10,10 +13,10 @@ import (
 
 func resourceRegion() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceRegionCreate,
-		Read:   resourceRegionRead,
-		Update: resourceRegionUpdate,
-		Delete: resourceRegionDelete,
+		CreateContext: resourceRegionCreate,
+		ReadContext:   resourceRegionRead,
+		UpdateContext: resourceRegionUpdate,
+		DeleteContext: resourceRegionDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -41,20 +44,20 @@ func newRegion(d *schema.ResourceData) models.Region {
 	}
 }
 
-func regionToResource(r *models.Region, d *schema.ResourceData) error {
+func regionToResource(r *models.Region, d *schema.ResourceData) diag.Diagnostics {
 	// set object params
 	err := d.Set(KeyName, *r.Name)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyDesc, r.Description)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	return nil
 }
 
-func resourceRegionCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceRegionCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -65,7 +68,7 @@ func resourceRegionCreate(d *schema.ResourceData, meta interface{}) error {
 	params := region.NewCreateRegionParams().WithBody(&rg)
 	r, err := pconf.K.Region.CreateRegion(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set resource ID accordingly
@@ -74,7 +77,7 @@ func resourceRegionCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceRegionRead(d *schema.ResourceData, meta interface{}) error {
+func resourceRegionRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -83,14 +86,14 @@ func resourceRegionRead(d *schema.ResourceData, meta interface{}) error {
 	params := region.NewGetRegionParams().WithRegionID(d.Id())
 	r, err := pconf.K.Region.GetRegion(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set object params
 	return regionToResource(r.Payload, d)
 }
 
-func resourceRegionDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceRegionDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -99,13 +102,13 @@ func resourceRegionDelete(d *schema.ResourceData, meta interface{}) error {
 	params := region.NewDeleteRegionParams().WithRegionID(d.Id())
 	_, err := pconf.K.Region.DeleteRegion(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-func resourceRegionUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceRegionUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -116,7 +119,7 @@ func resourceRegionUpdate(d *schema.ResourceData, meta interface{}) error {
 	params := region.NewUpdateRegionParams().WithRegionID(d.Id()).WithBody(&rg)
 	_, err := pconf.K.Region.UpdateRegion(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil

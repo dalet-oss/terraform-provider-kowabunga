@@ -1,8 +1,11 @@
 package kowabunga
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/dalet-oss/kowabunga-api/client/subnet"
 	"github.com/dalet-oss/kowabunga-api/client/vnet"
@@ -11,10 +14,10 @@ import (
 
 func resourceSubnet() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceSubnetCreate,
-		Read:   resourceSubnetRead,
-		Update: resourceSubnetUpdate,
-		Delete: resourceSubnetDelete,
+		CreateContext: resourceSubnetCreate,
+		ReadContext:   resourceSubnetRead,
+		UpdateContext: resourceSubnetUpdate,
+		DeleteContext: resourceSubnetDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -74,33 +77,33 @@ func newSubnet(d *schema.ResourceData) models.Subnet {
 	}
 }
 
-func subnetToResource(s *models.Subnet, d *schema.ResourceData) error {
+func subnetToResource(s *models.Subnet, d *schema.ResourceData) diag.Diagnostics {
 	// set object params
 	err := d.Set(KeyName, *s.Name)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyDesc, s.Description)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyCIDR, *s.Cidr)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyGateway, *s.Gateway)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	err = d.Set(KeyDNS, s.DNS)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-func resourceSubnetCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceSubnetCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -109,7 +112,7 @@ func resourceSubnetCreate(d *schema.ResourceData, meta interface{}) error {
 	// find parent vnet
 	vnetId, err := vnetIDFromID(d, pconf)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// create a new subnet
@@ -117,7 +120,7 @@ func resourceSubnetCreate(d *schema.ResourceData, meta interface{}) error {
 	params := vnet.NewCreateSubnetParams().WithVnetID(vnetId).WithBody(&cfg)
 	s, err := pconf.K.Vnet.CreateSubnet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set resource ID accordingly
@@ -129,14 +132,14 @@ func resourceSubnetCreate(d *schema.ResourceData, meta interface{}) error {
 		params2 := vnet.NewUpdateVNetDefaultSubnetParams().WithVnetID(vnetId).WithSubnetID(s.Payload.ID)
 		_, err = pconf.K.Vnet.UpdateVNetDefaultSubnet(params2, nil)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 	}
 
 	return nil
 }
 
-func resourceSubnetRead(d *schema.ResourceData, meta interface{}) error {
+func resourceSubnetRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -145,14 +148,14 @@ func resourceSubnetRead(d *schema.ResourceData, meta interface{}) error {
 	params := subnet.NewGetSubnetParams().WithSubnetID(d.Id())
 	s, err := pconf.K.Subnet.GetSubnet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	// set object params
 	return subnetToResource(s.Payload, d)
 }
 
-func resourceSubnetDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceSubnetDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -161,13 +164,13 @@ func resourceSubnetDelete(d *schema.ResourceData, meta interface{}) error {
 	params := subnet.NewDeleteSubnetParams().WithSubnetID(d.Id())
 	_, err := pconf.K.Subnet.DeleteSubnet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-func resourceSubnetUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceSubnetUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	pconf := meta.(*ProviderConfiguration)
 
 	pconf.Mutex.Lock()
@@ -178,7 +181,7 @@ func resourceSubnetUpdate(d *schema.ResourceData, meta interface{}) error {
 	params := subnet.NewUpdateSubnetParams().WithSubnetID(d.Id()).WithBody(&cfg)
 	_, err := pconf.K.Subnet.UpdateSubnet(params, nil)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	return nil
