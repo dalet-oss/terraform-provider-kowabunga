@@ -17,5 +17,5 @@ description: |-
 
 ### Required
 
-- `token` (String) Kowabunga platform token (API key)
+- `token` (String, Sensitive) Kowabunga platform token (API key)
 - `uri` (String) Kowabunga platform URI
