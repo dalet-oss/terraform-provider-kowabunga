@@ -19,7 +19,7 @@ mod: ; $(info $(M) collecting modules…) @
 
 .PHONY: fmt
 fmt: ; $(info $(M) formatting code…) @
-	$Q go fmt ./kowabunga .
+	$Q go fmt ./internal/provider .
 
 .PHONY: get-lint
 get-lint: ; $(info $(M) downloading go-lint…) @
@@ -31,7 +31,7 @@ lint: get-lint ; $(info $(M) running linter…) @
 
 .PHONY: vet
 vet: ; $(info $(M) running vetter…) @
-	$Q go vet ./kowabunga .
+	$Q go vet ./internal/provider .
 
 .PHONY: doc
 doc: ; $(info $(M) generating documentation…) @

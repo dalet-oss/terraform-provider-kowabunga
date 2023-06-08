@@ -1,41 +1,40 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
-	"io"
+	"log"
 	"math/rand"
-	"os"
 	"time"
 
-	"github.com/dalet-oss/terraform-provider-kowabunga/kowabunga"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/dalet-oss/terraform-provider-kowabunga/internal/provider"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+)
+
+const (
+	TerraformRegistryPluginName = "registry.terraform.io/dalet-oss/kowabunga"
 )
 
 // Generate the Terraform provider documentation using `tfplugindocs`:
 //go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
 
-var version = "was not built correctly" // set via the Makefile
+var version = "was not built correctly" // set via the Makefile or goreleaser
 
 func main() {
-	versionFlag := flag.Bool("version", false, "print version information and exit")
+	var debug bool
+
+	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
-	if *versionFlag {
-		err := printVersion(os.Stdout)
-		if err != nil {
-			os.Exit(1)
-		}
-		os.Exit(0)
+
+	opts := providerserver.ServeOpts{
+		Address: TerraformRegistryPluginName,
+		Debug:   debug,
 	}
 
-	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: kowabunga.Provider,
-	})
-}
-
-func printVersion(writer io.Writer) error {
-	_, err := fmt.Fprintf(writer, "%s %s\n", os.Args[0], version)
-	return err
+	err := providerserver.Serve(context.Background(), provider.New(version), opts)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
 
 func init() {
