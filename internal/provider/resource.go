@@ -29,6 +29,8 @@ const (
 	KeyTlsKey    = "key"
 	KeyTlsCert   = "cert"
 	KeyTlsCA     = "ca"
+	KeyPrice     = "price"
+	KeyCurrency  = "currency"
 	KeyPool      = "pool"
 	KeySecret    = "secret"
 	KeyVLAN      = "vlan"

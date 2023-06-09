@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -33,15 +35,17 @@ type PoolResource struct {
 }
 
 type PoolResourceModel struct {
-	ID      types.String `tfsdk:"id"`
-	Name    types.String `tfsdk:"name"`
-	Desc    types.String `tfsdk:"desc"`
-	Zone    types.String `tfsdk:"zone"`
-	Pool    types.String `tfsdk:"pool"`
-	Address types.String `tfsdk:"address"`
-	Port    types.Int64  `tfsdk:"port"`
-	Secret  types.String `tfsdk:"secret"`
-	Default types.Bool   `tfsdk:"default"`
+	ID       types.String  `tfsdk:"id"`
+	Name     types.String  `tfsdk:"name"`
+	Desc     types.String  `tfsdk:"desc"`
+	Zone     types.String  `tfsdk:"zone"`
+	Pool     types.String  `tfsdk:"pool"`
+	Address  types.String  `tfsdk:"address"`
+	Port     types.Int64   `tfsdk:"port"`
+	Secret   types.String  `tfsdk:"secret"`
+	Price    types.Float64 `tfsdk:"price"`
+	Currency types.String  `tfsdk:"currency"`
+	Default  types.Bool    `tfsdk:"default"`
 }
 
 func (r *PoolResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -85,6 +89,18 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 				Sensitive:           true,
 			},
+			KeyPrice: schema.Float64Attribute{
+				MarkdownDescription: "libvirt host monthly price value",
+				Computed:            true,
+				Optional:            true,
+				Default:             float64default.StaticFloat64(0),
+			},
+			KeyCurrency: schema.StringAttribute{
+				MarkdownDescription: "libvirt host monthly price currency",
+				Computed:            true,
+				Optional:            true,
+				Default:             stringdefault.StaticString("EUR"),
+			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set pool as zone's default one",
 				Computed:            true,
@@ -98,6 +114,11 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 
 // converts pool from Terraform model to Kowabunga API model
 func poolResourceToModel(d *PoolResourceModel) models.StoragePool {
+	price := float32(d.Price.ValueFloat64())
+	cost := models.Cost{
+		Price:    &price,
+		Currency: d.Currency.ValueStringPointer(),
+	}
 	return models.StoragePool{
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
@@ -105,6 +126,7 @@ func poolResourceToModel(d *PoolResourceModel) models.StoragePool {
 		Address:     d.Address.ValueStringPointer(),
 		Port:        d.Port.ValueInt64Pointer(),
 		SecretUUID:  d.Secret.ValueString(),
+		Cost:        &cost,
 	}
 }
 
@@ -116,6 +138,13 @@ func poolModelToResource(r *models.StoragePool, d *PoolResourceModel) {
 	d.Address = types.StringPointerValue(r.Address)
 	d.Port = types.Int64PointerValue(r.Port)
 	d.Secret = types.StringValue(r.SecretUUID)
+	if r.Cost != nil {
+		if r.Cost.Price != nil {
+			price := float64(*r.Cost.Price)
+			d.Price = types.Float64Value(price)
+		}
+		d.Currency = types.StringPointerValue(r.Cost.Currency)
+	}
 }
 
 func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
