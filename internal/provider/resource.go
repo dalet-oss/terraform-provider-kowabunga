@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
 	"github.com/dalet-oss/kowabunga-api/client/region"
+	"github.com/dalet-oss/kowabunga-api/client/subnet"
 	"github.com/dalet-oss/kowabunga-api/client/vnet"
 	"github.com/dalet-oss/kowabunga-api/client/zone"
 )
@@ -42,6 +43,9 @@ const (
 	KeyGateway   = "gateway"
 	KeyDNS       = "dns"
 	KeyVNet      = "vnet"
+	KeyMAC       = "hwaddress"
+	KeyAddresses = "addresses"
+	KeyReserved  = "reserved"
 )
 
 const (
@@ -51,6 +55,7 @@ const (
 	ErrorUnknownRegion        = "Unknown region"
 	ErrorUnknownZone          = "Unknown zone"
 	ErrorUnknownVNet          = "Unknown virtual network"
+	ErrorUnknownSubnet        = "Unknown subnet"
 )
 
 const (
@@ -194,4 +199,28 @@ func getVNetID(data *KowabungaProviderData, id string) (string, error) {
 	}
 
 	return "", fmt.Errorf(ErrorUnknownVNet)
+}
+
+func getSubnetID(data *KowabungaProviderData, id string) (string, error) {
+	// let's suppose param is a proper subnet ID
+	p1 := subnet.NewGetSubnetParams().WithSubnetID(id)
+	s, err := data.K.Subnet.GetSubnet(p1, nil)
+	if err == nil {
+		return s.Payload.ID, nil
+	}
+
+	// fall back, it may be a subnet name then, finds its associated ID
+	p2 := subnet.NewGetAllSubnetsParams()
+	subnets, err := data.K.Subnet.GetAllSubnets(p2, nil)
+	if err == nil {
+		for _, sn := range subnets.Payload {
+			p := subnet.NewGetSubnetParams().WithSubnetID(sn)
+			s, err := data.K.Subnet.GetSubnet(p, nil)
+			if err == nil && *s.Payload.Name == id {
+				return s.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownSubnet)
 }
