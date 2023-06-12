@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -17,6 +18,7 @@ import (
 
 const (
 	ProjectResourceName = "project"
+	ProjectGbToBytes    = 1063256064
 )
 
 var _ resource.Resource = &ProjectResource{}
@@ -31,11 +33,18 @@ type ProjectResource struct {
 }
 
 type ProjectResourceModel struct {
-	ID        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	Desc      types.String `tfsdk:"desc"`
-	Tags      types.List   `tfsdk:"tags"`
-	Metadatas types.Map    `tfsdk:"metadatas"`
+	ID           types.String `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	Desc         types.String `tfsdk:"desc"`
+	Tags         types.List   `tfsdk:"tags"`
+	Metadatas    types.Map    `tfsdk:"metadata"`
+	MaxInstances types.Int64  `tfsdk:"max_instances"`
+	MaxMemory    types.Int64  `tfsdk:"max_memory"`
+	MaxStorage   types.Int64  `tfsdk:"max_storage"`
+	MaxVCPUs     types.Int64  `tfsdk:"max_vcpus"`
+}
+
+type ProjectQuotaModel struct {
 }
 
 func (r *ProjectResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -59,10 +68,34 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				ElementType:         types.StringType,
 				Required:            true,
 			},
-			KeyMetadatas: schema.MapAttribute{
+			KeyMetadata: schema.MapAttribute{
 				MarkdownDescription: "List of metadatas key/value associated with the project",
 				ElementType:         types.StringType,
 				Required:            true,
+			},
+			KeyMaxInstances: schema.Int64Attribute{
+				MarkdownDescription: "Project maximum deployable instances",
+				Computed:            true,
+				Optional:            true,
+				Default:             int64default.StaticInt64(0),
+			},
+			KeyMaxMemory: schema.Int64Attribute{
+				MarkdownDescription: "Project maximum usable memory (expressed in GB)",
+				Computed:            true,
+				Optional:            true,
+				Default:             int64default.StaticInt64(0),
+			},
+			KeyMaxStorage: schema.Int64Attribute{
+				MarkdownDescription: "Project maximum usable storage (expressed in GB)",
+				Computed:            true,
+				Optional:            true,
+				Default:             int64default.StaticInt64(0),
+			},
+			KeyMaxVCPUs: schema.Int64Attribute{
+				MarkdownDescription: "Project maximum usable virtual CPUs",
+				Computed:            true,
+				Optional:            true,
+				Default:             int64default.StaticInt64(0),
 			},
 		},
 	}
@@ -108,6 +141,24 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 	d.Metadatas = basetypes.NewMapValueMust(types.StringType, metadatas)
 }
 
+// converts project quota from Terraform model to Kowabunga API model
+func projectQuotaToModel(d *ProjectResourceModel) models.ProjectResources {
+	return models.ProjectResources{
+		Instances: uint16(d.MaxInstances.ValueInt64()),
+		Memory:    uint64(d.MaxMemory.ValueInt64()) * ProjectGbToBytes,
+		Storage:   uint64(d.MaxStorage.ValueInt64()) * ProjectGbToBytes,
+		Vcpus:     uint16(d.MaxVCPUs.ValueInt64()),
+	}
+}
+
+// converts project from Kowabunga API model to Terraform model
+func projectModelToQuota(r *models.ProjectResources, d *ProjectResourceModel) {
+	d.MaxInstances = types.Int64Value(int64(r.Instances))
+	d.MaxMemory = types.Int64Value(int64(r.Memory) / ProjectGbToBytes)
+	d.MaxStorage = types.Int64Value(int64(r.Storage) / ProjectGbToBytes)
+	d.MaxVCPUs = types.Int64Value(int64(r.Vcpus))
+}
+
 func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data *ProjectResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -123,6 +174,15 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 	params := project.NewCreateProjectParams().WithBody(&cfg)
 	obj, err := r.Data.K.Project.CreateProject(params, nil)
 	if err != nil {
+		errorCreateGeneric(resp, err)
+		return
+	}
+
+	// assign quotas
+	cfg2 := projectQuotaToModel(data)
+	params2 := project.NewUpdateProjectQuotasParams().WithProjectID(obj.Payload.ID).WithBody(&cfg2)
+	_, err = r.Data.K.Project.UpdateProjectQuotas(params2, nil)
+	if err == nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
@@ -148,8 +208,16 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		errorReadGeneric(resp, err)
 		return
 	}
-
 	projectModelToResource(obj.Payload, data)
+
+	params2 := project.NewGetProjectQuotasParams().WithProjectID(data.ID.ValueString())
+	obj2, err := r.Data.K.Project.GetProjectQuotas(params2, nil)
+	if err != nil {
+		errorReadGeneric(resp, err)
+		return
+	}
+	projectModelToQuota(obj2.Payload, data)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -166,6 +234,15 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 	cfg := projectResourceToModel(data)
 	params := project.NewUpdateProjectParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg)
 	_, err := r.Data.K.Project.UpdateProject(params, nil)
+	if err != nil {
+		errorUpdateGeneric(resp, err)
+		return
+	}
+
+	// assign quotas
+	cfg2 := projectQuotaToModel(data)
+	params2 := project.NewUpdateProjectQuotasParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg2)
+	_, err = r.Data.K.Project.UpdateProjectQuotas(params2, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
