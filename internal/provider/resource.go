@@ -46,6 +46,7 @@ const (
 	KeyMAC       = "hwaddress"
 	KeyAddresses = "addresses"
 	KeyReserved  = "reserved"
+	KeyTags      = "tags"
 )
 
 const (
