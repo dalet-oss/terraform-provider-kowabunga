@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
+	"github.com/dalet-oss/kowabunga-api/client/pool"
+	"github.com/dalet-oss/kowabunga-api/client/project"
 	"github.com/dalet-oss/kowabunga-api/client/region"
 	"github.com/dalet-oss/kowabunga-api/client/subnet"
 	"github.com/dalet-oss/kowabunga-api/client/vnet"
@@ -52,6 +54,14 @@ const (
 	KeyMaxMemory    = "max_memory"
 	KeyMaxStorage   = "max_storage"
 	KeyMaxVCPUs     = "max_vcpus"
+	KeyProject      = "project"
+	KeyType         = "type"
+	KeySize         = "size"
+	KeyResizable    = "resizable"
+)
+
+const (
+	HelperGbToBytes = 1063256064
 )
 
 const (
@@ -62,6 +72,8 @@ const (
 	ErrorUnknownZone          = "Unknown zone"
 	ErrorUnknownVNet          = "Unknown virtual network"
 	ErrorUnknownSubnet        = "Unknown subnet"
+	ErrorUnknownProject       = "Unknown project"
+	ErrorUnknownPool          = "Unknown storage pool"
 )
 
 const (
@@ -229,4 +241,52 @@ func getSubnetID(data *KowabungaProviderData, id string) (string, error) {
 	}
 
 	return "", fmt.Errorf(ErrorUnknownSubnet)
+}
+
+func getProjectID(data *KowabungaProviderData, id string) (string, error) {
+	// let's suppose param is a proper project ID
+	p1 := project.NewGetProjectParams().WithProjectID(id)
+	p, err := data.K.Project.GetProject(p1, nil)
+	if err == nil {
+		return p.Payload.ID, nil
+	}
+
+	// fall back, it may be a project name then, finds its associated ID
+	p2 := project.NewGetAllProjectsParams()
+	projects, err := data.K.Project.GetAllProjects(p2, nil)
+	if err == nil {
+		for _, pn := range projects.Payload {
+			p := project.NewGetProjectParams().WithProjectID(pn)
+			prj, err := data.K.Project.GetProject(p, nil)
+			if err == nil && *prj.Payload.Name == id {
+				return prj.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownProject)
+}
+
+func getPoolID(data *KowabungaProviderData, id string) (string, error) {
+	// let's suppose param is a proper pool ID
+	p1 := pool.NewGetPoolParams().WithPoolID(id)
+	p, err := data.K.Pool.GetPool(p1, nil)
+	if err == nil {
+		return p.Payload.ID, nil
+	}
+
+	// fall back, it may be a pool name then, finds its associated ID
+	p2 := pool.NewGetAllPoolsParams()
+	pools, err := data.K.Pool.GetAllPools(p2, nil)
+	if err == nil {
+		for _, pn := range pools.Payload {
+			p := pool.NewGetPoolParams().WithPoolID(pn)
+			pl, err := data.K.Pool.GetPool(p, nil)
+			if err == nil && *pl.Payload.Name == id {
+				return pl.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownPool)
 }
