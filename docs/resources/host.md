@@ -26,9 +26,11 @@ Manages a host resource
 
 - `ca` (String) libvirt host API TLS CA
 - `cert` (String) libvirt host API TLS certificate
+- `currency` (String) libvirt host monthly price currency
 - `desc` (String) Resource extended description
 - `key` (String, Sensitive) libvirt host API TLS private key
 - `port` (Number) libvirt host API port number
+- `price` (Number) libvirt host monthly price value
 
 ### Read-Only
 
