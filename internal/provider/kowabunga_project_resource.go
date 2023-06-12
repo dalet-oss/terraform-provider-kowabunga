@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -30,10 +31,11 @@ type ProjectResource struct {
 }
 
 type ProjectResourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
-	Desc types.String `tfsdk:"desc"`
-	Tags types.List   `tfsdk:"tags"`
+	ID        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Desc      types.String `tfsdk:"desc"`
+	Tags      types.List   `tfsdk:"tags"`
+	Metadatas types.Map    `tfsdk:"metadatas"`
 }
 
 func (r *ProjectResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -57,6 +59,11 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				ElementType:         types.StringType,
 				Required:            true,
 			},
+			KeyMetadatas: schema.MapAttribute{
+				MarkdownDescription: "List of metadatas key/value associated with the project",
+				ElementType:         types.StringType,
+				Required:            true,
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
@@ -66,10 +73,22 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 func projectResourceToModel(d *ProjectResourceModel) models.Project {
 	tags := []string{}
 	d.Tags.ElementsAs(context.TODO(), &tags, false)
+	metas := map[string]string{}
+	d.Metadatas.ElementsAs(context.TODO(), &metas, false)
+	metadatas := []*models.Metadata{}
+	for k, v := range metas {
+		m := models.Metadata{
+			Key:   k,
+			Value: v,
+		}
+		metadatas = append(metadatas, &m)
+	}
+
 	return models.Project{
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
 		Tags:        tags,
+		Metadatas:   metadatas,
 	}
 }
 
@@ -82,6 +101,11 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 		tags = append(tags, types.StringValue(t))
 	}
 	d.Tags, _ = types.ListValue(types.StringType, tags)
+	metadatas := map[string]attr.Value{}
+	for _, m := range r.Metadatas {
+		metadatas[m.Key] = types.StringValue(m.Value)
+	}
+	d.Metadatas = basetypes.NewMapValueMust(types.StringType, metadatas)
 }
 
 func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

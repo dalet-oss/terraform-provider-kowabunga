@@ -47,6 +47,7 @@ const (
 	KeyAddresses = "addresses"
 	KeyReserved  = "reserved"
 	KeyTags      = "tags"
+	KeyMetadatas = "metadatas"
 )
 
 const (
