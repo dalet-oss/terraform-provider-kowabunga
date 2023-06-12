@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -35,18 +34,18 @@ type HostResource struct {
 }
 
 type HostResourceModel struct {
-	ID       types.String  `tfsdk:"id"`
-	Name     types.String  `tfsdk:"name"`
-	Desc     types.String  `tfsdk:"desc"`
-	Zone     types.String  `tfsdk:"zone"`
-	Protocol types.String  `tfsdk:"protocol"`
-	Address  types.String  `tfsdk:"address"`
-	Port     types.Int64   `tfsdk:"port"`
-	TlsKey   types.String  `tfsdk:"key"`
-	TlsCert  types.String  `tfsdk:"cert"`
-	TlsCA    types.String  `tfsdk:"ca"`
-	Price    types.Float64 `tfsdk:"price"`
-	Currency types.String  `tfsdk:"currency"`
+	ID       types.String `tfsdk:"id"`
+	Name     types.String `tfsdk:"name"`
+	Desc     types.String `tfsdk:"desc"`
+	Zone     types.String `tfsdk:"zone"`
+	Protocol types.String `tfsdk:"protocol"`
+	Address  types.String `tfsdk:"address"`
+	Port     types.Int64  `tfsdk:"port"`
+	TlsKey   types.String `tfsdk:"key"`
+	TlsCert  types.String `tfsdk:"cert"`
+	TlsCA    types.String `tfsdk:"ca"`
+	Price    types.Int64  `tfsdk:"price"`
+	Currency types.String `tfsdk:"currency"`
 }
 
 func (r *HostResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -100,11 +99,11 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				MarkdownDescription: "libvirt host API TLS CA",
 				Optional:            true,
 			},
-			KeyPrice: schema.Float64Attribute{
+			KeyPrice: schema.Int64Attribute{
 				MarkdownDescription: "libvirt host monthly price value",
 				Computed:            true,
 				Optional:            true,
-				Default:             float64default.StaticFloat64(0),
+				Default:             int64default.StaticInt64(0),
 			},
 			KeyCurrency: schema.StringAttribute{
 				MarkdownDescription: "libvirt host monthly price currency",
@@ -119,9 +118,8 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 
 // converts host from Terraform model to Kowabunga API model
 func hostResourceToModel(d *HostResourceModel) models.Host {
-	price := float32(d.Price.ValueFloat64())
 	cost := models.Cost{
-		Price:    &price,
+		Price:    d.Price.ValueInt64Pointer(),
 		Currency: d.Currency.ValueStringPointer(),
 	}
 	hc := models.Host{
@@ -153,10 +151,7 @@ func hostModelToResource(r *models.Host, d *HostResourceModel) {
 	d.Address = types.StringPointerValue(r.Address)
 	d.Port = types.Int64Value(r.Port)
 	if r.Cost != nil {
-		if r.Cost.Price != nil {
-			price := float64(*r.Cost.Price)
-			d.Price = types.Float64Value(price)
-		}
+		d.Price = types.Int64PointerValue(r.Cost.Price)
 		d.Currency = types.StringPointerValue(r.Cost.Currency)
 	}
 	if r.TLS != nil {
