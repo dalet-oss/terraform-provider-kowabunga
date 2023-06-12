@@ -18,7 +18,6 @@ import (
 
 const (
 	ProjectResourceName = "project"
-	ProjectGbToBytes    = 1063256064
 )
 
 var _ resource.Resource = &ProjectResource{}
@@ -145,8 +144,8 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 func projectQuotaToModel(d *ProjectResourceModel) models.ProjectResources {
 	return models.ProjectResources{
 		Instances: uint16(d.MaxInstances.ValueInt64()),
-		Memory:    uint64(d.MaxMemory.ValueInt64()) * ProjectGbToBytes,
-		Storage:   uint64(d.MaxStorage.ValueInt64()) * ProjectGbToBytes,
+		Memory:    uint64(d.MaxMemory.ValueInt64()) * HelperGbToBytes,
+		Storage:   uint64(d.MaxStorage.ValueInt64()) * HelperGbToBytes,
 		Vcpus:     uint16(d.MaxVCPUs.ValueInt64()),
 	}
 }
@@ -154,8 +153,8 @@ func projectQuotaToModel(d *ProjectResourceModel) models.ProjectResources {
 // converts project from Kowabunga API model to Terraform model
 func projectModelToQuota(r *models.ProjectResources, d *ProjectResourceModel) {
 	d.MaxInstances = types.Int64Value(int64(r.Instances))
-	d.MaxMemory = types.Int64Value(int64(r.Memory) / ProjectGbToBytes)
-	d.MaxStorage = types.Int64Value(int64(r.Storage) / ProjectGbToBytes)
+	d.MaxMemory = types.Int64Value(int64(r.Memory) / HelperGbToBytes)
+	d.MaxStorage = types.Int64Value(int64(r.Storage) / HelperGbToBytes)
 	d.MaxVCPUs = types.Int64Value(int64(r.Vcpus))
 }
 
@@ -177,17 +176,17 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 		errorCreateGeneric(resp, err)
 		return
 	}
+	data.ID = types.StringValue(obj.Payload.ID)
 
 	// assign quotas
 	cfg2 := projectQuotaToModel(data)
-	params2 := project.NewUpdateProjectQuotasParams().WithProjectID(obj.Payload.ID).WithBody(&cfg2)
+	params2 := project.NewUpdateProjectQuotasParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg2)
 	_, err = r.Data.K.Project.UpdateProjectQuotas(params2, nil)
-	if err == nil {
+	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 
-	data.ID = types.StringValue(obj.Payload.ID)
 	tflog.Trace(ctx, "created project resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
