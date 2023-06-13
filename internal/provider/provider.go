@@ -134,6 +134,7 @@ func (p *KowabungaProvider) Resources(ctx context.Context) []func() resource.Res
 		NewNetGWResource,
 		NewHostResource,
 		NewPoolResource,
+		NewTemplateResource,
 		NewVolumeResource,
 		NewVNetResource,
 		NewSubnetResource,
