@@ -132,7 +132,7 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// create a new volume
 	cfg := volumeResourceToModel(data)
-	params := project.NewCreateVolumeParams().WithProjectID(projectId).WithPoolID(&poolId).WithBody(&cfg)
+	params := project.NewCreateVolumeParams().WithProjectID(projectId).WithPoolID(poolId).WithBody(&cfg)
 	obj, err := r.Data.K.Project.CreateVolume(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
