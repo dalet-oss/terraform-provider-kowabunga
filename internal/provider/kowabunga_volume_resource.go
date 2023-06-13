@@ -37,6 +37,7 @@ type VolumeResourceModel struct {
 	Project   types.String `tfsdk:"project"`
 	Zone      types.String `tfsdk:"zone"`
 	Pool      types.String `tfsdk:"pool"`
+	Template  types.String `tfsdk:"template"`
 	Type      types.String `tfsdk:"type"`
 	Size      types.Int64  `tfsdk:"size"`
 	Resizable types.Bool   `tfsdk:"resizable"`
@@ -73,6 +74,10 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			KeyType: schema.StringAttribute{
 				MarkdownDescription: "The volume type (valid options: 'os', 'iso', 'raw')",
 				Required:            true,
+			},
+			KeyTemplate: schema.StringAttribute{
+				MarkdownDescription: "The volume type (valid options: 'os', 'iso', 'raw')",
+				Optional:            true,
 			},
 			KeySize: schema.Int64Attribute{
 				MarkdownDescription: "The volume size (expressed in GB)",
@@ -138,11 +143,17 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	// find parent pool (optional)
 	poolId, _ := getPoolID(r.Data, data.Pool.ValueString())
 
+	// find parent pool (optional)
+	templateId, _ := getTemplateID(r.Data, data.Template.ValueString())
+
 	// create a new volume
 	cfg := volumeResourceToModel(data)
 	params := project.NewCreateZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
 	if poolId != "" {
 		params = params.WithPoolID(&poolId)
+	}
+	if templateId != "" {
+		params = params.WithTemplateID(&templateId)
 	}
 	obj, err := r.Data.K.Project.CreateZoneVolume(params, nil)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/client/project"
 	"github.com/dalet-oss/kowabunga-api/client/region"
 	"github.com/dalet-oss/kowabunga-api/client/subnet"
+	"github.com/dalet-oss/kowabunga-api/client/template"
 	"github.com/dalet-oss/kowabunga-api/client/vnet"
 	"github.com/dalet-oss/kowabunga-api/client/zone"
 )
@@ -56,6 +57,7 @@ const (
 	KeyMaxVCPUs     = "max_vcpus"
 	KeyProject      = "project"
 	KeyType         = "type"
+	KeyTemplate     = "template"
 	KeySize         = "size"
 	KeyResizable    = "resizable"
 )
@@ -74,6 +76,7 @@ const (
 	ErrorUnknownSubnet        = "Unknown subnet"
 	ErrorUnknownProject       = "Unknown project"
 	ErrorUnknownPool          = "Unknown storage pool"
+	ErrorUnknownTemplate      = "Unknown volume template"
 )
 
 const (
@@ -289,4 +292,28 @@ func getPoolID(data *KowabungaProviderData, id string) (string, error) {
 	}
 
 	return "", fmt.Errorf(ErrorUnknownPool)
+}
+
+func getTemplateID(data *KowabungaProviderData, id string) (string, error) {
+	// let's suppose param is a proper template ID
+	p1 := template.NewGetTemplateParams().WithTemplateID(id)
+	t, err := data.K.Template.GetTemplate(p1, nil)
+	if err == nil {
+		return t.Payload.ID, nil
+	}
+
+	// fall back, it may be a template name then, finds its associated ID
+	p2 := template.NewGetAllTemplatesParams()
+	templates, err := data.K.Template.GetAllTemplates(p2, nil)
+	if err == nil {
+		for _, tn := range templates.Payload {
+			p := template.NewGetTemplateParams().WithTemplateID(tn)
+			t, err := data.K.Template.GetTemplate(p, nil)
+			if err == nil && *t.Payload.Name == id {
+				return t.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownTemplate)
 }
