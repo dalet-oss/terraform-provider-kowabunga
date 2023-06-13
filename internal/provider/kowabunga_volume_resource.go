@@ -35,6 +35,7 @@ type VolumeResourceModel struct {
 	Name      types.String `tfsdk:"name"`
 	Desc      types.String `tfsdk:"desc"`
 	Project   types.String `tfsdk:"project"`
+	Zone      types.String `tfsdk:"zone"`
 	Pool      types.String `tfsdk:"pool"`
 	Type      types.String `tfsdk:"type"`
 	Size      types.Int64  `tfsdk:"size"`
@@ -61,9 +62,13 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "Associated project name or ID",
 				Required:            true,
 			},
-			KeyPool: schema.StringAttribute{
-				MarkdownDescription: "Associated pool name or ID",
+			KeyZone: schema.StringAttribute{
+				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
+			},
+			KeyPool: schema.StringAttribute{
+				MarkdownDescription: "Associated pool name or ID (zone's default if unspecified)",
+				Optional:            true,
 			},
 			KeyType: schema.StringAttribute{
 				MarkdownDescription: "The volume type (valid options: 'os', 'iso', 'raw')",
@@ -123,17 +128,23 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	// find parent pool
-	poolId, err := getPoolID(r.Data, data.Pool.ValueString())
+	// find parent zone
+	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 
+	// find parent pool (optional)
+	poolId, _ := getPoolID(r.Data, data.Pool.ValueString())
+
 	// create a new volume
 	cfg := volumeResourceToModel(data)
-	params := project.NewCreateVolumeParams().WithProjectID(projectId).WithPoolID(poolId).WithBody(&cfg)
-	obj, err := r.Data.K.Project.CreateVolume(params, nil)
+	params := project.NewCreateZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
+	if poolId != "" {
+		params = params.WithPoolID(&poolId)
+	}
+	obj, err := r.Data.K.Project.CreateZoneVolume(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
