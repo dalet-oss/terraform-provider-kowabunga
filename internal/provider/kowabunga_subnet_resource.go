@@ -31,14 +31,20 @@ type SubnetResource struct {
 }
 
 type SubnetResourceModel struct {
-	ID      types.String `tfsdk:"id"`
-	Name    types.String `tfsdk:"name"`
-	Desc    types.String `tfsdk:"desc"`
-	VNet    types.String `tfsdk:"vnet"`
-	CIDR    types.String `tfsdk:"cidr"`
-	Gateway types.String `tfsdk:"gateway"`
-	DNS     types.String `tfsdk:"dns"`
-	Default types.Bool   `tfsdk:"default"`
+	ID      types.String             `tfsdk:"id"`
+	Name    types.String             `tfsdk:"name"`
+	Desc    types.String             `tfsdk:"desc"`
+	VNet    types.String             `tfsdk:"vnet"`
+	CIDR    types.String             `tfsdk:"cidr"`
+	Gateway types.String             `tfsdk:"gateway"`
+	DNS     types.String             `tfsdk:"dns"`
+	DHCP    []DhcpRangeResourceModel `tfsdk:"dhcp"`
+	Default types.Bool               `tfsdk:"default"`
+}
+
+type DhcpRangeResourceModel struct {
+	First types.String `tfsdk:"first"`
+	Last  types.String `tfsdk:"last"`
 }
 
 func (r *SubnetResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -73,6 +79,22 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "Subnet DNS server",
 				Required:            true,
 			},
+			KeyDHCP: schema.ListNestedAttribute{
+				MarkdownDescription: "List of subnet's dynamic DHCP ranges",
+				Required:            true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						KeyFirst: schema.StringAttribute{
+							MarkdownDescription: "The range's first IP address for DHCP dynamic leases",
+							Required:            true,
+						},
+						KeyLast: schema.StringAttribute{
+							MarkdownDescription: "The range's last IP address for DHCP dynamic leases",
+							Required:            true,
+						},
+					},
+				},
+			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set subnet as virtual network's default one",
 				Computed:            true,
@@ -86,12 +108,22 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 
 // converts subnet from Terraform model to Kowabunga API model
 func subnetResourceToModel(d *SubnetResourceModel) models.Subnet {
+	dhcpRanges := []*models.DhcpRange{}
+	for _, item := range d.DHCP {
+		dr := models.DhcpRange{
+			First: item.First.ValueStringPointer(),
+			Last:  item.Last.ValueStringPointer(),
+		}
+		dhcpRanges = append(dhcpRanges, &dr)
+	}
+
 	return models.Subnet{
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
 		Cidr:        d.CIDR.ValueStringPointer(),
 		Gateway:     d.Gateway.ValueStringPointer(),
 		DNS:         d.DNS.ValueString(),
+		Dhcp:        dhcpRanges,
 	}
 }
 
@@ -102,6 +134,14 @@ func subnetModelToResource(r *models.Subnet, d *SubnetResourceModel) {
 	d.CIDR = types.StringPointerValue(r.Cidr)
 	d.Gateway = types.StringPointerValue(r.Gateway)
 	d.DNS = types.StringValue(r.DNS)
+
+	for _, item := range r.Dhcp {
+		dr := DhcpRangeResourceModel{
+			First: types.StringPointerValue(item.First),
+			Last:  types.StringPointerValue(item.Last),
+		}
+		d.DHCP = append(d.DHCP, dr)
+	}
 }
 
 func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
