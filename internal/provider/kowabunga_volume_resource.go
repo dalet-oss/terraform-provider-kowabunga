@@ -143,7 +143,7 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	// find parent pool (optional)
 	poolId, _ := getPoolID(r.Data, data.Pool.ValueString())
 
-	// find parent pool (optional)
+	// find parent template (optional)
 	templateId, _ := getTemplateID(r.Data, data.Template.ValueString())
 
 	// create a new volume
