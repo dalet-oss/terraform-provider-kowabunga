@@ -1,6 +1,6 @@
 bin
 terraform-provider-kowabunga
-sample.tf
+*.tf
 terraform.tfstate*
 .terraform
 .terraform.lock.hcl
