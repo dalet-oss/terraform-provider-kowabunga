@@ -64,6 +64,10 @@ const (
 	KeyTemplate     = "template"
 	KeySize         = "size"
 	KeyResizable    = "resizable"
+	KeyVCPUs        = "vcpus"
+	KeyMemory       = "mem"
+	KeyAdapters     = "adapters"
+	KeyVolumes      = "volumes"
 )
 
 const (
