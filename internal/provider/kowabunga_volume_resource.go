@@ -76,7 +76,7 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Required:            true,
 			},
 			KeyTemplate: schema.StringAttribute{
-				MarkdownDescription: "The volume type (valid options: 'os', 'iso', 'raw')",
+				MarkdownDescription: "The template name or ID",
 				Optional:            true,
 			},
 			KeySize: schema.Int64Attribute{

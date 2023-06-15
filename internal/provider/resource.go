@@ -60,6 +60,7 @@ const (
 	KeyMaxVCPUs     = "max_vcpus"
 	KeyProject      = "project"
 	KeyType         = "type"
+	KeyOS           = "os"
 	KeyTemplate     = "template"
 	KeySize         = "size"
 	KeyResizable    = "resizable"

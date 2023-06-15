@@ -37,6 +37,7 @@ type TemplateResourceModel struct {
 	Desc    types.String `tfsdk:"desc"`
 	Pool    types.String `tfsdk:"pool"`
 	Type    types.String `tfsdk:"type"`
+	OS      types.String `tfsdk:"os"`
 	Default types.Bool   `tfsdk:"default"`
 }
 
@@ -64,7 +65,13 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "The template type (valid options: 'os', 'raw')",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString("os"),
+				Default:             stringdefault.StaticString(models.TemplateKindOs),
+			},
+			KeyOS: schema.StringAttribute{
+				MarkdownDescription: "The template type (valid options: 'os', 'raw')",
+				Computed:            true,
+				Optional:            true,
+				Default:             stringdefault.StaticString(models.TemplateOsLinux),
 			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set pool as zone's default one",
@@ -83,6 +90,7 @@ func templateResourceToModel(d *TemplateResourceModel) models.Template {
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
 		Kind:        d.Type.ValueStringPointer(),
+		Os:          d.OS.ValueStringPointer(),
 	}
 }
 
@@ -91,6 +99,7 @@ func templateModelToResource(r *models.Template, d *TemplateResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.Type = types.StringPointerValue(r.Kind)
+	d.OS = types.StringPointerValue(r.Os)
 }
 
 func (r *TemplateResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
