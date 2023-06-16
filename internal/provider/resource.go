@@ -71,7 +71,7 @@ const (
 )
 
 const (
-	HelperGbToBytes = 1063256064
+	HelperGbToBytes = 1073741824
 )
 
 const (
