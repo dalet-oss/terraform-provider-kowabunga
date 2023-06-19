@@ -74,7 +74,7 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			},
 			KeyAddress: schema.StringAttribute{
 				MarkdownDescription: "Ceph RBD monitor address or hostname",
-				Required:            true,
+				Optional:            true,
 			},
 			KeyPort: schema.Int64Attribute{
 				MarkdownDescription: "Ceph RBD monitor port number",
@@ -119,13 +119,13 @@ func poolResourceToModel(d *PoolResourceModel) models.StoragePool {
 		Currency: d.Currency.ValueStringPointer(),
 	}
 	return models.StoragePool{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Pool:        d.Pool.ValueStringPointer(),
-		Address:     d.Address.ValueStringPointer(),
-		Port:        d.Port.ValueInt64Pointer(),
-		SecretUUID:  d.Secret.ValueString(),
-		Cost:        &cost,
+		Name:           d.Name.ValueStringPointer(),
+		Description:    d.Desc.ValueString(),
+		Pool:           d.Pool.ValueStringPointer(),
+		CephAddress:    d.Address.ValueStringPointer(),
+		CephPort:       d.Port.ValueInt64Pointer(),
+		CephSecretUUID: d.Secret.ValueString(),
+		Cost:           &cost,
 	}
 }
 
@@ -134,9 +134,9 @@ func poolModelToResource(r *models.StoragePool, d *PoolResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.Pool = types.StringPointerValue(r.Pool)
-	d.Address = types.StringPointerValue(r.Address)
-	d.Port = types.Int64PointerValue(r.Port)
-	d.Secret = types.StringValue(r.SecretUUID)
+	d.Address = types.StringPointerValue(r.CephAddress)
+	d.Port = types.Int64PointerValue(r.CephPort)
+	d.Secret = types.StringValue(r.CephSecretUUID)
 	if r.Cost != nil {
 		d.Price = types.Int64PointerValue(r.Cost.Price)
 		d.Currency = types.StringPointerValue(r.Cost.Currency)

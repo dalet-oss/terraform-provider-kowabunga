@@ -100,7 +100,7 @@ func volumeResourceToModel(d *VolumeResourceModel) models.Volume {
 	return models.Volume{
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
-		Kind:        d.Type.ValueStringPointer(),
+		Type:        d.Type.ValueStringPointer(),
 		Size:        &size,
 		Resizable:   d.Resizable.ValueBoolPointer(),
 	}
@@ -111,7 +111,7 @@ func volumeModelToResource(r *models.Volume, d *VolumeResourceModel) {
 	size := *r.Size / HelperGbToBytes
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
-	d.Type = types.StringPointerValue(r.Kind)
+	d.Type = types.StringPointerValue(r.Type)
 	d.Size = types.Int64Value(size)
 	d.Resizable = types.BoolPointerValue(r.Resizable)
 }

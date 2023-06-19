@@ -65,7 +65,7 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "The template type (valid options: 'os', 'raw')",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString(models.TemplateKindOs),
+				Default:             stringdefault.StaticString(models.TemplateTypeOs),
 			},
 			KeyOS: schema.StringAttribute{
 				MarkdownDescription: "The template type (valid options: 'os', 'raw')",
@@ -89,7 +89,7 @@ func templateResourceToModel(d *TemplateResourceModel) models.Template {
 	return models.Template{
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
-		Kind:        d.Type.ValueStringPointer(),
+		Type:        d.Type.ValueStringPointer(),
 		Os:          d.OS.ValueStringPointer(),
 	}
 }
@@ -98,7 +98,7 @@ func templateResourceToModel(d *TemplateResourceModel) models.Template {
 func templateModelToResource(r *models.Template, d *TemplateResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
-	d.Type = types.StringPointerValue(r.Kind)
+	d.Type = types.StringPointerValue(r.Type)
 	d.OS = types.StringPointerValue(r.Os)
 }
 
