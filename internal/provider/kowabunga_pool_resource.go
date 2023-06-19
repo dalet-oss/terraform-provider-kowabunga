@@ -40,6 +40,7 @@ type PoolResourceModel struct {
 	Desc     types.String `tfsdk:"desc"`
 	Zone     types.String `tfsdk:"zone"`
 	Type     types.String `tfsdk:"type"`
+	Host     types.String `tfsdk:"host"`
 	Pool     types.String `tfsdk:"pool"`
 	Address  types.String `tfsdk:"address"`
 	Port     types.Int64  `tfsdk:"port"`
@@ -74,6 +75,12 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(models.StoragePoolTypeRbd),
+			},
+			KeyHost: schema.StringAttribute{
+				MarkdownDescription: "Host to bind the storage pool to",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
 			},
 			KeyPool: schema.StringAttribute{
 				MarkdownDescription: "Ceph RBD pool name",
@@ -169,9 +176,12 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// create a new network gateway
+	// find parent template (optional)
+	hostId, _ := getHostID(r.Data, data.Host.ValueString())
+
+	// create a new storage pool
 	cfg := poolResourceToModel(data)
-	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg)
+	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithHostID(&hostId).WithBody(&cfg)
 	obj, err := r.Data.K.Zone.CreatePool(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)

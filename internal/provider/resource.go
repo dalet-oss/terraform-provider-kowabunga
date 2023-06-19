@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
+	"github.com/dalet-oss/kowabunga-api/client/host"
 	"github.com/dalet-oss/kowabunga-api/client/pool"
 	"github.com/dalet-oss/kowabunga-api/client/project"
 	"github.com/dalet-oss/kowabunga-api/client/region"
@@ -36,6 +37,7 @@ const (
 	KeyPrice        = "price"
 	KeyCurrency     = "currency"
 	KeyPool         = "pool"
+	KeyHost         = "host"
 	KeySecret       = "secret"
 	KeyVLAN         = "vlan"
 	KeyInterface    = "interface"
@@ -85,6 +87,7 @@ const (
 	ErrorUnknownProject       = "Unknown project"
 	ErrorUnknownPool          = "Unknown storage pool"
 	ErrorUnknownTemplate      = "Unknown volume template"
+	ErrorUnknownHost          = "Unknown host"
 )
 
 const (
@@ -324,4 +327,28 @@ func getTemplateID(data *KowabungaProviderData, id string) (string, error) {
 	}
 
 	return "", fmt.Errorf(ErrorUnknownTemplate)
+}
+
+func getHostID(data *KowabungaProviderData, id string) (string, error) {
+	// let's suppose param is a proper template ID
+	p1 := host.NewGetHostParams().WithHostID(id)
+	h, err := data.K.Host.GetHost(p1, nil)
+	if err == nil {
+		return h.Payload.ID, nil
+	}
+
+	// fall back, it may be a host name then, finds its associated ID
+	p2 := host.NewGetAllHostsParams()
+	hosts, err := data.K.Host.GetAllHosts(p2, nil)
+	if err == nil {
+		for _, hn := range hosts.Payload {
+			p := host.NewGetHostParams().WithHostID(hn)
+			h, err := data.K.Host.GetHost(p, nil)
+			if err == nil && *h.Payload.Name == id {
+				return h.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownHost)
 }
