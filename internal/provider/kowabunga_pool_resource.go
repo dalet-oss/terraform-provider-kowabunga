@@ -39,6 +39,7 @@ type PoolResourceModel struct {
 	Name     types.String `tfsdk:"name"`
 	Desc     types.String `tfsdk:"desc"`
 	Zone     types.String `tfsdk:"zone"`
+	Type     types.String `tfsdk:"type"`
 	Pool     types.String `tfsdk:"pool"`
 	Address  types.String `tfsdk:"address"`
 	Port     types.Int64  `tfsdk:"port"`
@@ -67,6 +68,12 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			KeyZone: schema.StringAttribute{
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
+			},
+			KeyType: schema.StringAttribute{
+				MarkdownDescription: "Pool type ('local' or 'rbd', defaults to 'rbd')",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(models.StoragePoolTypeRbd),
 			},
 			KeyPool: schema.StringAttribute{
 				MarkdownDescription: "Ceph RBD pool name",
@@ -121,6 +128,7 @@ func poolResourceToModel(d *PoolResourceModel) models.StoragePool {
 	return models.StoragePool{
 		Name:           d.Name.ValueStringPointer(),
 		Description:    d.Desc.ValueString(),
+		Type:           d.Type.ValueStringPointer(),
 		Pool:           d.Pool.ValueStringPointer(),
 		CephAddress:    d.Address.ValueStringPointer(),
 		CephPort:       d.Port.ValueInt64Pointer(),
@@ -133,6 +141,7 @@ func poolResourceToModel(d *PoolResourceModel) models.StoragePool {
 func poolModelToResource(r *models.StoragePool, d *PoolResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
+	d.Type = types.StringPointerValue(r.Type)
 	d.Pool = types.StringPointerValue(r.Pool)
 	d.Address = types.StringPointerValue(r.CephAddress)
 	d.Port = types.Int64PointerValue(r.CephPort)
