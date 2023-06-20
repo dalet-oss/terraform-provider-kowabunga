@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -62,8 +63,10 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Required:            true,
 			},
 			KeyMAC: schema.StringAttribute{
-				MarkdownDescription: "Network adapter hardware MAC address (e.g. 00:11:22:33:44:55)",
-				Required:            true,
+				MarkdownDescription: "Network adapter hardware MAC address (e.g. 00:11:22:33:44:55). AUto-generated if unspecified.",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
 			},
 			KeyAddresses: schema.ListAttribute{
 				MarkdownDescription: "Network adapter list of associated IPv4 addresses",
@@ -88,7 +91,7 @@ func adapterResourceToModel(d *AdapterResourceModel) models.Adapter {
 	return models.Adapter{
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
-		Mac:         d.MAC.ValueStringPointer(),
+		Mac:         d.MAC.ValueString(),
 		Addresses:   addresses,
 		Reserved:    d.Reserved.ValueBoolPointer(),
 	}
@@ -98,7 +101,7 @@ func adapterResourceToModel(d *AdapterResourceModel) models.Adapter {
 func adapterModelToResource(r *models.Adapter, d *AdapterResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
-	d.MAC = types.StringPointerValue(r.Mac)
+	d.MAC = types.StringValue(r.Mac)
 	addresses := []attr.Value{}
 	for _, a := range r.Addresses {
 		addresses = append(addresses, types.StringValue(a))

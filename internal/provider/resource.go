@@ -54,6 +54,7 @@ const (
 	KeyMAC          = "hwaddress"
 	KeyAddresses    = "addresses"
 	KeyReserved     = "reserved"
+	KeyEmail        = "email"
 	KeyTags         = "tags"
 	KeyMetadata     = "metadata"
 	KeyMaxInstances = "max_instances"

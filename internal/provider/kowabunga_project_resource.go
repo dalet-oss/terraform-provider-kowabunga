@@ -35,6 +35,7 @@ type ProjectResourceModel struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
 	Desc         types.String `tfsdk:"desc"`
+	Email        types.String `tfsdk:"email"`
 	Tags         types.List   `tfsdk:"tags"`
 	Metadatas    types.Map    `tfsdk:"metadata"`
 	MaxInstances types.Int64  `tfsdk:"max_instances"`
@@ -62,6 +63,10 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a project resource",
 		Attributes: map[string]schema.Attribute{
+			KeyEmail: schema.StringAttribute{
+				MarkdownDescription: "Email associated to the project to receive notifications.",
+				Required:            true,
+			},
 			KeyTags: schema.ListAttribute{
 				MarkdownDescription: "List of tags associated with the project",
 				ElementType:         types.StringType,
@@ -119,6 +124,7 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 	return models.Project{
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
+		Email:       d.Email.ValueStringPointer(),
 		Tags:        tags,
 		Metadatas:   metadatas,
 	}
@@ -128,6 +134,7 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
+	d.Email = types.StringPointerValue(r.Email)
 	tags := []attr.Value{}
 	for _, t := range r.Tags {
 		tags = append(tags, types.StringValue(t))
