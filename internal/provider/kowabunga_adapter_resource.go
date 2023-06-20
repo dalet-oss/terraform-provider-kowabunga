@@ -39,6 +39,7 @@ type AdapterResourceModel struct {
 	Subnet    types.String `tfsdk:"subnet"`
 	MAC       types.String `tfsdk:"hwaddress"`
 	Addresses types.List   `tfsdk:"addresses"`
+	Assign    types.Bool   `tfsdk:"assign"`
 	Reserved  types.Bool   `tfsdk:"reserved"`
 }
 
@@ -73,6 +74,13 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				ElementType:         types.StringType,
 				Required:            true,
 			},
+			KeyAssign: schema.BoolAttribute{
+				MarkdownDescription: "Whether an IP address should be automatically assigned to the adapter. Useless if addresses have been specified",
+				Computed:            true,
+				Optional:            true,
+				Default:             booldefault.StaticBool(false),
+			},
+
 			KeyReserved: schema.BoolAttribute{
 				MarkdownDescription: "Whether the network adapter is reserved (e.g. router), i.e. where the same hardware address can be reused over several subnets",
 				Computed:            true,
@@ -130,6 +138,10 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 	// create a new adapter
 	cfg := adapterResourceToModel(data)
 	params := subnet.NewCreateAdapterParams().WithSubnetID(subnetId).WithBody(&cfg)
+	if data.Assign.ValueBool() && len(cfg.Addresses) != 0 {
+		params = params.WithAssignIP(data.Assign.ValueBoolPointer())
+	}
+
 	obj, err := r.Data.K.Subnet.CreateAdapter(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)

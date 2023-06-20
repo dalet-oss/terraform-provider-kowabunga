@@ -53,6 +53,7 @@ const (
 	KeyVNet         = "vnet"
 	KeyMAC          = "hwaddress"
 	KeyAddresses    = "addresses"
+	KeyAssign       = "assign"
 	KeyReserved     = "reserved"
 	KeyEmail        = "email"
 	KeyTags         = "tags"
