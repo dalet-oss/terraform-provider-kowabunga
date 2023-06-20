@@ -138,7 +138,7 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 	// create a new adapter
 	cfg := adapterResourceToModel(data)
 	params := subnet.NewCreateAdapterParams().WithSubnetID(subnetId).WithBody(&cfg)
-	if data.Assign.ValueBool() && len(cfg.Addresses) != 0 {
+	if data.Assign.ValueBool() && len(cfg.Addresses) == 0 {
 		params = params.WithAssignIP(data.Assign.ValueBoolPointer())
 	}
 
