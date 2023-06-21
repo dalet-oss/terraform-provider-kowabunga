@@ -13,7 +13,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -74,7 +78,9 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				MarkdownDescription: "Pool type ('local' or 'rbd', defaults to 'rbd')",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(models.StoragePoolTypeRbd),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyHost: schema.StringAttribute{
 				MarkdownDescription: "Host to bind the storage pool to",
@@ -93,9 +99,13 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			KeyPort: schema.Int64Attribute{
 				MarkdownDescription: "Ceph RBD monitor port number",
 				Optional:            true,
+				Computed:            true,
 				Validators: []validator.Int64{
 					int64validator.AtLeast(0),
 					int64validator.AtMost(65535),
+				},
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
 				},
 			},
 			KeySecret: schema.StringAttribute{
@@ -181,7 +191,10 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// create a new storage pool
 	cfg := poolResourceToModel(data)
-	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithHostID(&hostId).WithBody(&cfg)
+	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg)
+	if hostId != "" {
+		params = params.WithHostID(&hostId)
+	}
 	obj, err := r.Data.K.Zone.CreatePool(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -199,6 +212,7 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	poolModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created pool resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

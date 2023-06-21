@@ -130,6 +130,7 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	netgwModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created netgw resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

@@ -12,7 +12,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -85,19 +88,37 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 					int64validator.AtMost(65535),
 				},
 				Default: int64default.StaticInt64(0),
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyTlsKey: schema.StringAttribute{
 				MarkdownDescription: "libvirt host API TLS private key",
 				Optional:            true,
 				Sensitive:           true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyTlsCert: schema.StringAttribute{
 				MarkdownDescription: "libvirt host API TLS certificate",
 				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyTlsCA: schema.StringAttribute{
 				MarkdownDescription: "libvirt host API TLS CA",
 				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyPrice: schema.Int64Attribute{
 				MarkdownDescription: "libvirt host monthly price value",
@@ -188,6 +209,7 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	hostModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created host resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

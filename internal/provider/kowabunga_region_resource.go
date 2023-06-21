@@ -85,6 +85,7 @@ func (r *RegionResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	regionModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created region resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

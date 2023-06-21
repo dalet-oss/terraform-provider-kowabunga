@@ -12,7 +12,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -67,12 +69,18 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "Network adapter hardware MAC address (e.g. 00:11:22:33:44:55). AUto-generated if unspecified.",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(""),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyAddresses: schema.ListAttribute{
 				MarkdownDescription: "Network adapter list of associated IPv4 addresses",
 				ElementType:         types.StringType,
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyAssign: schema.BoolAttribute{
 				MarkdownDescription: "Whether an IP address should be automatically assigned to the adapter. Useless if addresses have been specified",
@@ -149,6 +157,7 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	adapterModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created adapter resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

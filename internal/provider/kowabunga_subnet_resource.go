@@ -2,12 +2,15 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"golang.org/x/exp/maps"
+	"strings"
 
 	"github.com/dalet-oss/kowabunga-api/client/subnet"
 	"github.com/dalet-oss/kowabunga-api/client/vnet"
 	"github.com/dalet-oss/kowabunga-api/models"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -31,20 +34,15 @@ type SubnetResource struct {
 }
 
 type SubnetResourceModel struct {
-	ID      types.String             `tfsdk:"id"`
-	Name    types.String             `tfsdk:"name"`
-	Desc    types.String             `tfsdk:"desc"`
-	VNet    types.String             `tfsdk:"vnet"`
-	CIDR    types.String             `tfsdk:"cidr"`
-	Gateway types.String             `tfsdk:"gateway"`
-	DNS     types.String             `tfsdk:"dns"`
-	DHCP    []DhcpRangeResourceModel `tfsdk:"dhcp"`
-	Default types.Bool               `tfsdk:"default"`
-}
-
-type DhcpRangeResourceModel struct {
-	First types.String `tfsdk:"first"`
-	Last  types.String `tfsdk:"last"`
+	ID      types.String `tfsdk:"id"`
+	Name    types.String `tfsdk:"name"`
+	Desc    types.String `tfsdk:"desc"`
+	VNet    types.String `tfsdk:"vnet"`
+	CIDR    types.String `tfsdk:"cidr"`
+	Gateway types.String `tfsdk:"gateway"`
+	DNS     types.String `tfsdk:"dns"`
+	DHCP    types.List   `tfsdk:"dhcp"`
+	Default types.Bool   `tfsdk:"default"`
 }
 
 func (r *SubnetResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -79,21 +77,10 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "Subnet DNS server",
 				Required:            true,
 			},
-			KeyDHCP: schema.ListNestedAttribute{
-				MarkdownDescription: "List of subnet's dynamic DHCP ranges",
+			KeyDHCP: schema.ListAttribute{
+				MarkdownDescription: "List of subnet's dynamic DHCP ranges (format: 192.168.0.200-192.168.0.240)",
 				Required:            true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						KeyFirst: schema.StringAttribute{
-							MarkdownDescription: "The range's first IP address for DHCP dynamic leases",
-							Required:            true,
-						},
-						KeyLast: schema.StringAttribute{
-							MarkdownDescription: "The range's last IP address for DHCP dynamic leases",
-							Required:            true,
-						},
-					},
-				},
+				ElementType:         types.StringType,
 			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set subnet as virtual network's default one",
@@ -109,10 +96,16 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 // converts subnet from Terraform model to Kowabunga API model
 func subnetResourceToModel(d *SubnetResourceModel) models.Subnet {
 	dhcpRanges := []*models.DhcpRange{}
-	for _, item := range d.DHCP {
+	dhcp := []string{}
+	d.DHCP.ElementsAs(context.TODO(), &dhcp, false)
+	for _, item := range dhcp {
+		split := strings.Split(item, "-")
+		if len(split) != 2 {
+			continue
+		}
 		dr := models.DhcpRange{
-			First: item.First.ValueStringPointer(),
-			Last:  item.Last.ValueStringPointer(),
+			First: &split[0],
+			Last:  &split[1],
 		}
 		dhcpRanges = append(dhcpRanges, &dr)
 	}
@@ -135,13 +128,12 @@ func subnetModelToResource(r *models.Subnet, d *SubnetResourceModel) {
 	d.Gateway = types.StringPointerValue(r.Gateway)
 	d.DNS = types.StringValue(r.DNS)
 
+	dhcp := []attr.Value{}
 	for _, item := range r.Dhcp {
-		dr := DhcpRangeResourceModel{
-			First: types.StringPointerValue(item.First),
-			Last:  types.StringPointerValue(item.Last),
-		}
-		d.DHCP = append(d.DHCP, dr)
+		dr := fmt.Sprintf("%s-%s", *item.First, *item.Last)
+		dhcp = append(dhcp, types.StringValue(dr))
 	}
+	d.DHCP, _ = types.ListValue(types.StringType, dhcp)
 }
 
 func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -181,6 +173,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	//subnetModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created subnet resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

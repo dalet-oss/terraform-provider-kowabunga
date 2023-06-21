@@ -184,6 +184,7 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 	data.ID = types.StringValue(obj.Payload.ID)
+	projectModelToResource(obj.Payload, data) // read back resulting object
 
 	// assign quotas
 	cfg2 := projectQuotaToModel(data)

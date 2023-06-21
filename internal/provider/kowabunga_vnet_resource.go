@@ -149,6 +149,7 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	vnetModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created vnet resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

@@ -162,6 +162,7 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	volumeModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created volume resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

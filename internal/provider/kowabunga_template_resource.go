@@ -139,6 +139,7 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	templateModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created template resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

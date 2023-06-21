@@ -102,6 +102,7 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
+	zoneModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created zone resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
