@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"golang.org/x/exp/maps"
+	"sort"
 
 	"github.com/dalet-oss/kowabunga-api/client/instance"
 	"github.com/dalet-oss/kowabunga-api/client/project"
@@ -96,6 +97,7 @@ func instanceResourceToModel(d *InstanceResourceModel) models.Instance {
 	d.Adapters.ElementsAs(context.TODO(), &adapters, false)
 	volumes := []string{}
 	d.Volumes.ElementsAs(context.TODO(), &volumes, false)
+	sort.Strings(volumes)
 
 	return models.Instance{
 		Name:        d.Name.ValueStringPointer(),
@@ -120,6 +122,7 @@ func instanceModelToResource(r *models.Instance, d *InstanceResourceModel) {
 	}
 	d.Adapters, _ = types.ListValue(types.StringType, adapters)
 	volumes := []attr.Value{}
+	sort.Strings(r.Volumes)
 	for _, v := range r.Volumes {
 		volumes = append(volumes, types.StringValue(v))
 	}
