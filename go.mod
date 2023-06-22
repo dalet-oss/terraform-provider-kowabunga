@@ -3,7 +3,7 @@ module github.com/dalet-oss/terraform-provider-kowabunga
 go 1.19
 
 require (
-	github.com/dalet-oss/kowabunga-api v0.5.8
+	github.com/dalet-oss/kowabunga-api v0.5.9
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/hashicorp/terraform-plugin-docs v0.14.1

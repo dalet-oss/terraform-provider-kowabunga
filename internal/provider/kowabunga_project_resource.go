@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -36,6 +37,7 @@ type ProjectResourceModel struct {
 	Name         types.String `tfsdk:"name"`
 	Desc         types.String `tfsdk:"desc"`
 	Email        types.String `tfsdk:"email"`
+	Domain       types.String `tfsdk:"domain"`
 	Tags         types.List   `tfsdk:"tags"`
 	Metadatas    types.Map    `tfsdk:"metadata"`
 	MaxInstances types.Int64  `tfsdk:"max_instances"`
@@ -66,6 +68,12 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 			KeyEmail: schema.StringAttribute{
 				MarkdownDescription: "Email associated to the project to receive notifications.",
 				Required:            true,
+			},
+			KeyDomain: schema.StringAttribute{
+				MarkdownDescription: "Internal domain name associated to the project (e.g. myproject.acme.com).",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
 			},
 			KeyTags: schema.ListAttribute{
 				MarkdownDescription: "List of tags associated with the project",
@@ -125,6 +133,7 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 		Name:        d.Name.ValueStringPointer(),
 		Description: d.Desc.ValueString(),
 		Email:       d.Email.ValueStringPointer(),
+		Domain:      d.Domain.ValueString(),
 		Tags:        tags,
 		Metadatas:   metadatas,
 	}
@@ -135,6 +144,7 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.Email = types.StringPointerValue(r.Email)
+	d.Domain = types.StringValue(r.Domain)
 	tags := []attr.Value{}
 	for _, t := range r.Tags {
 		tags = append(tags, types.StringValue(t))

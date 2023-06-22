@@ -56,6 +56,7 @@ const (
 	KeyAssign       = "assign"
 	KeyReserved     = "reserved"
 	KeyEmail        = "email"
+	KeyDomain       = "domain"
 	KeyTags         = "tags"
 	KeyMetadata     = "metadata"
 	KeyMaxInstances = "max_instances"
