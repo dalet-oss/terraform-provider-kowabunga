@@ -11,7 +11,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -38,6 +40,9 @@ type ProjectResourceModel struct {
 	Desc         types.String `tfsdk:"desc"`
 	Email        types.String `tfsdk:"email"`
 	Domain       types.String `tfsdk:"domain"`
+	RootPassword types.String `tfsdk:"root_password"`
+	User         types.String `tfsdk:"bootstrap_user"`
+	Pubkey       types.String `tfsdk:"bootstrap_pubkey"`
 	Tags         types.List   `tfsdk:"tags"`
 	Metadatas    types.Map    `tfsdk:"metadata"`
 	MaxInstances types.Int64  `tfsdk:"max_instances"`
@@ -74,6 +79,28 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
+			},
+			KeyRootPassword: schema.StringAttribute{
+				MarkdownDescription: "The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
+			},
+			KeyBootstrapUser: schema.StringAttribute{
+				MarkdownDescription: "The project default service user name, created at cloud-init instance bootstrap phase. Will use Kowabunga's default configuration one if unspecified.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			KeyBootstrapPubkey: schema.StringAttribute{
+				MarkdownDescription: "The project default public SSH key, to be associated to bootstrap user. Will use Kowabunga's default configuration one if unspecified.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyTags: schema.ListAttribute{
 				MarkdownDescription: "List of tags associated with the project",
@@ -130,12 +157,15 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 	}
 
 	return models.Project{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Email:       d.Email.ValueStringPointer(),
-		Domain:      d.Domain.ValueString(),
-		Tags:        tags,
-		Metadatas:   metadatas,
+		Name:            d.Name.ValueStringPointer(),
+		Description:     d.Desc.ValueString(),
+		Email:           d.Email.ValueStringPointer(),
+		Domain:          d.Domain.ValueString(),
+		RootPassword:    d.RootPassword.ValueString(),
+		BootstrapUser:   d.User.ValueString(),
+		BootstrapPubkey: d.Pubkey.ValueString(),
+		Tags:            tags,
+		Metadatas:       metadatas,
 	}
 }
 
@@ -145,6 +175,9 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 	d.Desc = types.StringValue(r.Description)
 	d.Email = types.StringPointerValue(r.Email)
 	d.Domain = types.StringValue(r.Domain)
+	d.RootPassword = types.StringValue(r.RootPassword)
+	d.User = types.StringValue(r.BootstrapUser)
+	d.Pubkey = types.StringValue(r.BootstrapPubkey)
 	tags := []attr.Value{}
 	for _, t := range r.Tags {
 		tags = append(tags, types.StringValue(t))
