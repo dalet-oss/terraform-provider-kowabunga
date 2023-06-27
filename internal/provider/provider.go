@@ -141,6 +141,7 @@ func (p *KowabungaProvider) Resources(ctx context.Context) []func() resource.Res
 		NewAdapterResource,
 		NewProjectResource,
 		NewInstanceResource,
+		NewKceResource,
 	}
 }
 

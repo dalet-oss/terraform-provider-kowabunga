@@ -76,6 +76,9 @@ const (
 	KeyMemory          = "mem"
 	KeyAdapters        = "adapters"
 	KeyVolumes         = "volumes"
+	KeyDisk            = "disk"
+	KeyExtraDisk       = "extra_disk"
+	KeyPublic          = "public"
 )
 
 const (
