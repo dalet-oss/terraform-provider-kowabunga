@@ -17,19 +17,21 @@ Manages a pool resource
 
 ### Required
 
-- `address` (String) Ceph RBD monitor address or hostname
 - `name` (String) Resource name
 - `pool` (String) Ceph RBD pool name
 - `zone` (String) Associated zone name or ID
 
 ### Optional
 
+- `address` (String) Ceph RBD monitor address or hostname
 - `currency` (String) libvirt host monthly price currency
 - `default` (Boolean) Whether to set pool as zone's default one
 - `desc` (String) Resource extended description
+- `host` (String) Host to bind the storage pool to
 - `port` (Number) Ceph RBD monitor port number
 - `price` (Number) libvirt host monthly price value
 - `secret` (String, Sensitive) CephX client authentication UUID
+- `type` (String) Pool type ('local' or 'rbd', defaults to 'rbd')
 
 ### Read-Only
 

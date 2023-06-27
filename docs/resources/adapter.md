@@ -17,14 +17,15 @@ Manages a network adapter resource
 
 ### Required
 
-- `addresses` (List of String) Network adapter list of associated IPv4 addresses
-- `hwaddress` (String) Network adapter hardware MAC address (e.g. 00:11:22:33:44:55)
 - `name` (String) Resource name
 - `subnet` (String) Associated subnet name or ID
 
 ### Optional
 
+- `addresses` (List of String) Network adapter list of associated IPv4 addresses
+- `assign` (Boolean) Whether an IP address should be automatically assigned to the adapter. Useless if addresses have been specified
 - `desc` (String) Resource extended description
+- `hwaddress` (String) Network adapter hardware MAC address (e.g. 00:11:22:33:44:55). AUto-generated if unspecified.
 - `reserved` (Boolean) Whether the network adapter is reserved (e.g. router), i.e. where the same hardware address can be reused over several subnets
 
 ### Read-Only

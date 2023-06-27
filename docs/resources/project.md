@@ -17,27 +17,25 @@ Manages a project resource
 
 ### Required
 
+- `email` (String) Email associated to the project to receive notifications.
 - `metadata` (Map of String) List of metadatas key/value associated with the project
 - `name` (String) Resource name
 - `tags` (List of String) List of tags associated with the project
 
 ### Optional
 
+- `bootstrap_pubkey` (String) The project default public SSH key, to be associated to bootstrap user. Will use Kowabunga's default configuration one if unspecified.
+- `bootstrap_user` (String) The project default service user name, created at cloud-init instance bootstrap phase. Will use Kowabunga's default configuration one if unspecified.
 - `desc` (String) Resource extended description
-- `quota` (Attributes) Set of user-defined project quotas (see [below for nested schema](#nestedatt--quota))
+- `domain` (String) Internal domain name associated to the project (e.g. myproject.acme.com).
+- `max_instances` (Number) Project maximum deployable instances
+- `max_memory` (Number) Project maximum usable memory (expressed in GB)
+- `max_storage` (Number) Project maximum usable storage (expressed in GB)
+- `max_vcpus` (Number) Project maximum usable virtual CPUs
+- `root_password` (String) The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.
 
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-<a id="nestedatt--quota"></a>
-### Nested Schema for `quota`
-
-Optional:
-
-- `instances` (Number) Project maximum deployable instances
-- `memory` (Number) Project maximum usable memory (expressed in GB)
-- `storage` (Number) Project maximum usable storage (expressed in GB)
-- `vcpus` (Number) Project maximum usable virtual CPUs
 
 
