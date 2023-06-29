@@ -48,6 +48,7 @@ const (
 	KeyCIDR            = "cidr"
 	KeyGateway         = "gateway"
 	KeyDNS             = "dns"
+	KeyRoutes          = "routes"
 	KeyFirst           = "first"
 	KeyLast            = "last"
 	KeyVNet            = "vnet"

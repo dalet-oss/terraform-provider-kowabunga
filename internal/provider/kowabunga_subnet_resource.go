@@ -42,6 +42,7 @@ type SubnetResourceModel struct {
 	Gateway  types.String `tfsdk:"gateway"`
 	DNS      types.String `tfsdk:"dns"`
 	Reserved types.List   `tfsdk:"reserved"`
+	Routes   types.List   `tfsdk:"routes"`
 	Default  types.Bool   `tfsdk:"default"`
 }
 
@@ -82,6 +83,11 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Required:            true,
 				ElementType:         types.StringType,
 			},
+			KeyRoutes: schema.ListAttribute{
+				MarkdownDescription: "List of extra routes to be access through designated gateway (format: 10.0.0.0/8).",
+				Required:            true,
+				ElementType:         types.StringType,
+			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set subnet as virtual network's default one",
 				Computed:            true,
@@ -109,6 +115,8 @@ func subnetResourceToModel(d *SubnetResourceModel) models.Subnet {
 		}
 		reservedRanges = append(reservedRanges, &ipr)
 	}
+	routes := []string{}
+	d.Routes.ElementsAs(context.TODO(), &routes, false)
 
 	return models.Subnet{
 		Name:        d.Name.ValueStringPointer(),
@@ -117,23 +125,29 @@ func subnetResourceToModel(d *SubnetResourceModel) models.Subnet {
 		Gateway:     d.Gateway.ValueStringPointer(),
 		DNS:         d.DNS.ValueString(),
 		Reserved:    reservedRanges,
+		ExtraRoutes: routes,
 	}
 }
 
 // converts subnet from Kowabunga API model to Terraform model
-func subnetModelToResource(r *models.Subnet, d *SubnetResourceModel) {
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.CIDR = types.StringPointerValue(r.Cidr)
-	d.Gateway = types.StringPointerValue(r.Gateway)
-	d.DNS = types.StringValue(r.DNS)
+func subnetModelToResource(s *models.Subnet, d *SubnetResourceModel) {
+	d.Name = types.StringPointerValue(s.Name)
+	d.Desc = types.StringValue(s.Description)
+	d.CIDR = types.StringPointerValue(s.Cidr)
+	d.Gateway = types.StringPointerValue(s.Gateway)
+	d.DNS = types.StringValue(s.DNS)
 
 	ranges := []attr.Value{}
-	for _, item := range r.Reserved {
+	for _, item := range s.Reserved {
 		ipr := fmt.Sprintf("%s-%s", *item.First, *item.Last)
 		ranges = append(ranges, types.StringValue(ipr))
 	}
 	d.Reserved, _ = types.ListValue(types.StringType, ranges)
+	routes := []attr.Value{}
+	for _, r := range s.ExtraRoutes {
+		routes = append(routes, types.StringValue(r))
+	}
+	d.Routes, _ = types.ListValue(types.StringType, routes)
 }
 
 func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
