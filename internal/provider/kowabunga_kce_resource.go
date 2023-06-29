@@ -40,7 +40,6 @@ type KceResourceModel struct {
 	Zone      types.String `tfsdk:"zone"`
 	Pool      types.String `tfsdk:"pool"`
 	Template  types.String `tfsdk:"template"`
-	Subnet    types.String `tfsdk:"subnet"`
 	VCPUs     types.Int64  `tfsdk:"vcpus"`
 	Memory    types.Int64  `tfsdk:"mem"`
 	Disk      types.Int64  `tfsdk:"disk"`
@@ -80,12 +79,6 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			},
 			KeyTemplate: schema.StringAttribute{
 				MarkdownDescription: "Associated template name or ID (zone's default pool's default if unspecified)",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString(""),
-			},
-			KeySubnet: schema.StringAttribute{
-				MarkdownDescription: "Associated private subnet name or ID (zone's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
@@ -179,22 +172,16 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// find parent template (optional)
 	templateId, _ := getTemplateID(r.Data, data.Template.ValueString())
 
-	// find parent subnet (optional)
-	subnetId, _ := getSubnetID(r.Data, data.Subnet.ValueString())
-
 	// create a new KCE
 	cfg := kceResourceToModel(data)
-	params := project.NewCreateZoneKceParams().WithProjectID(projectId).WithZoneID(zoneId).WithPublic(data.Public.ValueBoolPointer()).WithBody(&cfg)
+	params := project.NewCreateProjectZoneKceParams().WithProjectID(projectId).WithZoneID(zoneId).WithPublic(data.Public.ValueBoolPointer()).WithBody(&cfg)
 	if poolId != "" {
 		params = params.WithPoolID(&poolId)
 	}
 	if templateId != "" {
 		params = params.WithTemplateID(&templateId)
 	}
-	if subnetId != "" {
-		params = params.WithSubnetID(&subnetId)
-	}
-	obj, err := r.Data.K.Project.CreateZoneKce(params, nil)
+	obj, err := r.Data.K.Project.CreateProjectZoneKce(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return

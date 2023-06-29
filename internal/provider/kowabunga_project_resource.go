@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -35,20 +36,21 @@ type ProjectResource struct {
 }
 
 type ProjectResourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	Desc         types.String `tfsdk:"desc"`
-	Email        types.String `tfsdk:"email"`
-	Domain       types.String `tfsdk:"domain"`
-	RootPassword types.String `tfsdk:"root_password"`
-	User         types.String `tfsdk:"bootstrap_user"`
-	Pubkey       types.String `tfsdk:"bootstrap_pubkey"`
-	Tags         types.List   `tfsdk:"tags"`
-	Metadatas    types.Map    `tfsdk:"metadata"`
-	MaxInstances types.Int64  `tfsdk:"max_instances"`
-	MaxMemory    types.Int64  `tfsdk:"max_memory"`
-	MaxStorage   types.Int64  `tfsdk:"max_storage"`
-	MaxVCPUs     types.Int64  `tfsdk:"max_vcpus"`
+	ID           types.String  `tfsdk:"id"`
+	Name         types.String  `tfsdk:"name"`
+	Desc         types.String  `tfsdk:"desc"`
+	Email        types.String  `tfsdk:"email"`
+	Domain       types.String  `tfsdk:"domain"`
+	SubnetSize   types.Float64 `tfsdk:"subnet_size"`
+	RootPassword types.String  `tfsdk:"root_password"`
+	User         types.String  `tfsdk:"bootstrap_user"`
+	Pubkey       types.String  `tfsdk:"bootstrap_pubkey"`
+	Tags         types.List    `tfsdk:"tags"`
+	Metadatas    types.Map     `tfsdk:"metadata"`
+	MaxInstances types.Int64   `tfsdk:"max_instances"`
+	MaxMemory    types.Int64   `tfsdk:"max_memory"`
+	MaxStorage   types.Int64   `tfsdk:"max_storage"`
+	MaxVCPUs     types.Int64   `tfsdk:"max_vcpus"`
 }
 
 type ProjectQuotaModel struct {
@@ -79,6 +81,12 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
+			},
+			KeySubnetSize: schema.Float64Attribute{
+				MarkdownDescription: "Project requested VPC subnet size (defaults to /26)",
+				Computed:            true,
+				Optional:            true,
+				Default:             float64default.StaticFloat64(26),
 			},
 			KeyRootPassword: schema.StringAttribute{
 				MarkdownDescription: "The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.",
@@ -220,7 +228,7 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// create a new project
 	cfg := projectResourceToModel(data)
-	params := project.NewCreateProjectParams().WithBody(&cfg)
+	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueFloat64Pointer()).WithBody(&cfg)
 	obj, err := r.Data.K.Project.CreateProject(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)

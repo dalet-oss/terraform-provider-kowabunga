@@ -155,8 +155,8 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	// create a new instance
 	cfg := instanceResourceToModel(data)
-	params := project.NewCreateZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
-	obj, err := r.Data.K.Project.CreateZoneInstance(params, nil)
+	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
+	obj, err := r.Data.K.Project.CreateProjectZoneInstance(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return

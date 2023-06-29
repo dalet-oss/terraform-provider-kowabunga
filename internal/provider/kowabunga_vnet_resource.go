@@ -40,7 +40,6 @@ type VNetResourceModel struct {
 	VLAN      types.Int64  `tfsdk:"vlan"`
 	Interface types.String `tfsdk:"interface"`
 	Private   types.Bool   `tfsdk:"private"`
-	Default   types.Bool   `tfsdk:"default"`
 }
 
 func (r *VNetResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -80,12 +79,6 @@ func (r *VNetResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(true),
-			},
-			KeyDefault: schema.BoolAttribute{
-				MarkdownDescription: "Whether to set virtual network as zone's default one",
-				Computed:            true,
-				Optional:            true,
-				Default:             booldefault.StaticBool(false),
 			},
 		},
 	}
@@ -136,16 +129,6 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
-	}
-
-	// set virtual network as default
-	if data.Default.ValueBool() {
-		params2 := zone.NewUpdateZoneDefaultVNetParams().WithZoneID(zoneId).WithVnetID(obj.Payload.ID)
-		_, err = r.Data.K.Zone.UpdateZoneDefaultVNet(params2, nil)
-		if err != nil {
-			errorCreateGeneric(resp, err)
-			return
-		}
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)

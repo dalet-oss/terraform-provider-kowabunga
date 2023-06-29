@@ -148,14 +148,14 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// create a new volume
 	cfg := volumeResourceToModel(data)
-	params := project.NewCreateZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
+	params := project.NewCreateProjectZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
 	if poolId != "" {
 		params = params.WithPoolID(&poolId)
 	}
 	if templateId != "" {
 		params = params.WithTemplateID(&templateId)
 	}
-	obj, err := r.Data.K.Project.CreateZoneVolume(params, nil)
+	obj, err := r.Data.K.Project.CreateProjectZoneVolume(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
