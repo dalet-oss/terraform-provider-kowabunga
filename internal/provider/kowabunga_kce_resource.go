@@ -45,6 +45,7 @@ type KceResourceModel struct {
 	Disk      types.Int64  `tfsdk:"disk"`
 	ExtraDisk types.Int64  `tfsdk:"extra_disk"`
 	Public    types.Bool   `tfsdk:"public"`
+	Notify    types.Bool   `tfsdk:"notify"`
 }
 
 func (r *KceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -106,6 +107,12 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
+			},
+			KeyNotify: schema.BoolAttribute{
+				MarkdownDescription: "Whether to send email notification at creation",
+				Computed:            true,
+				Optional:            true,
+				Default:             booldefault.StaticBool(true),
 			},
 		},
 	}
@@ -174,7 +181,7 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// create a new KCE
 	cfg := kceResourceToModel(data)
-	params := project.NewCreateProjectZoneKceParams().WithProjectID(projectId).WithZoneID(zoneId).WithPublic(data.Public.ValueBoolPointer()).WithBody(&cfg)
+	params := project.NewCreateProjectZoneKceParams().WithProjectID(projectId).WithZoneID(zoneId).WithPublic(data.Public.ValueBoolPointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg)
 	if poolId != "" {
 		params = params.WithPoolID(&poolId)
 	}

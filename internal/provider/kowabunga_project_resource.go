@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -36,21 +36,23 @@ type ProjectResource struct {
 }
 
 type ProjectResourceModel struct {
-	ID           types.String  `tfsdk:"id"`
-	Name         types.String  `tfsdk:"name"`
-	Desc         types.String  `tfsdk:"desc"`
-	Email        types.String  `tfsdk:"email"`
-	Domain       types.String  `tfsdk:"domain"`
-	SubnetSize   types.Float64 `tfsdk:"subnet_size"`
-	RootPassword types.String  `tfsdk:"root_password"`
-	User         types.String  `tfsdk:"bootstrap_user"`
-	Pubkey       types.String  `tfsdk:"bootstrap_pubkey"`
-	Tags         types.List    `tfsdk:"tags"`
-	Metadatas    types.Map     `tfsdk:"metadata"`
-	MaxInstances types.Int64   `tfsdk:"max_instances"`
-	MaxMemory    types.Int64   `tfsdk:"max_memory"`
-	MaxStorage   types.Int64   `tfsdk:"max_storage"`
-	MaxVCPUs     types.Int64   `tfsdk:"max_vcpus"`
+	ID           types.String `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	Desc         types.String `tfsdk:"desc"`
+	Owner        types.String `tfsdk:"owner"`
+	Email        types.String `tfsdk:"email"`
+	Domain       types.String `tfsdk:"domain"`
+	SubnetSize   types.Int64  `tfsdk:"subnet_size"`
+	RootPassword types.String `tfsdk:"root_password"`
+	User         types.String `tfsdk:"bootstrap_user"`
+	Pubkey       types.String `tfsdk:"bootstrap_pubkey"`
+	Tags         types.List   `tfsdk:"tags"`
+	Metadatas    types.Map    `tfsdk:"metadata"`
+	MaxInstances types.Int64  `tfsdk:"max_instances"`
+	MaxMemory    types.Int64  `tfsdk:"max_memory"`
+	MaxStorage   types.Int64  `tfsdk:"max_storage"`
+	MaxVCPUs     types.Int64  `tfsdk:"max_vcpus"`
+	Notify       types.Bool   `tfsdk:"notify"`
 }
 
 type ProjectQuotaModel struct {
@@ -72,6 +74,10 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a project resource",
 		Attributes: map[string]schema.Attribute{
+			KeyOwner: schema.StringAttribute{
+				MarkdownDescription: "Owner of the project.",
+				Required:            true,
+			},
 			KeyEmail: schema.StringAttribute{
 				MarkdownDescription: "Email associated to the project to receive notifications.",
 				Required:            true,
@@ -82,11 +88,11 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
 			},
-			KeySubnetSize: schema.Float64Attribute{
+			KeySubnetSize: schema.Int64Attribute{
 				MarkdownDescription: "Project requested VPC subnet size (defaults to /26)",
 				Computed:            true,
 				Optional:            true,
-				Default:             float64default.StaticFloat64(26),
+				Default:             int64default.StaticInt64(26),
 			},
 			KeyRootPassword: schema.StringAttribute{
 				MarkdownDescription: "The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.",
@@ -144,6 +150,12 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Default:             int64default.StaticInt64(0),
 			},
+			KeyNotify: schema.BoolAttribute{
+				MarkdownDescription: "Whether to send email notification at creation",
+				Computed:            true,
+				Optional:            true,
+				Default:             booldefault.StaticBool(true),
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
@@ -163,10 +175,17 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 		}
 		metadatas = append(metadatas, &m)
 	}
+	quotas := models.ProjectResources{
+		Instances: uint16(d.MaxInstances.ValueInt64()),
+		Memory:    uint64(d.MaxMemory.ValueInt64()) * HelperGbToBytes,
+		Storage:   uint64(d.MaxStorage.ValueInt64()) * HelperGbToBytes,
+		Vcpus:     uint16(d.MaxVCPUs.ValueInt64()),
+	}
 
 	return models.Project{
 		Name:            d.Name.ValueStringPointer(),
 		Description:     d.Desc.ValueString(),
+		Owner:           d.Owner.ValueStringPointer(),
 		Email:           d.Email.ValueStringPointer(),
 		Domain:          d.Domain.ValueString(),
 		RootPassword:    d.RootPassword.ValueString(),
@@ -174,6 +193,7 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 		BootstrapPubkey: d.Pubkey.ValueString(),
 		Tags:            tags,
 		Metadatas:       metadatas,
+		Quotas:          &quotas,
 	}
 }
 
@@ -181,6 +201,7 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
+	d.Owner = types.StringPointerValue(r.Owner)
 	d.Email = types.StringPointerValue(r.Email)
 	d.Domain = types.StringValue(r.Domain)
 	d.RootPassword = types.StringValue(r.RootPassword)
@@ -196,24 +217,13 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 		metadatas[m.Key] = types.StringValue(m.Value)
 	}
 	d.Metadatas = basetypes.NewMapValueMust(types.StringType, metadatas)
-}
-
-// converts project quota from Terraform model to Kowabunga API model
-func projectQuotaToModel(d *ProjectResourceModel) models.ProjectResources {
-	return models.ProjectResources{
-		Instances: uint16(d.MaxInstances.ValueInt64()),
-		Memory:    uint64(d.MaxMemory.ValueInt64()) * HelperGbToBytes,
-		Storage:   uint64(d.MaxStorage.ValueInt64()) * HelperGbToBytes,
-		Vcpus:     uint16(d.MaxVCPUs.ValueInt64()),
+	if r.Quotas != nil {
+		quotas := *r.Quotas
+		d.MaxInstances = types.Int64Value(int64(quotas.Instances))
+		d.MaxMemory = types.Int64Value(int64(quotas.Memory) / HelperGbToBytes)
+		d.MaxStorage = types.Int64Value(int64(quotas.Storage) / HelperGbToBytes)
+		d.MaxVCPUs = types.Int64Value(int64(quotas.Vcpus))
 	}
-}
-
-// converts project from Kowabunga API model to Terraform model
-func projectModelToQuota(r *models.ProjectResources, d *ProjectResourceModel) {
-	d.MaxInstances = types.Int64Value(int64(r.Instances))
-	d.MaxMemory = types.Int64Value(int64(r.Memory) / HelperGbToBytes)
-	d.MaxStorage = types.Int64Value(int64(r.Storage) / HelperGbToBytes)
-	d.MaxVCPUs = types.Int64Value(int64(r.Vcpus))
 }
 
 func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -228,7 +238,7 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// create a new project
 	cfg := projectResourceToModel(data)
-	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueFloat64Pointer()).WithBody(&cfg)
+	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueInt64Pointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg)
 	obj, err := r.Data.K.Project.CreateProject(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -236,15 +246,6 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 	data.ID = types.StringValue(obj.Payload.ID)
 	projectModelToResource(obj.Payload, data) // read back resulting object
-
-	// assign quotas
-	cfg2 := projectQuotaToModel(data)
-	params2 := project.NewUpdateProjectQuotasParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg2)
-	_, err = r.Data.K.Project.UpdateProjectQuotas(params2, nil)
-	if err != nil {
-		errorCreateGeneric(resp, err)
-		return
-	}
 
 	tflog.Trace(ctx, "created project resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -268,14 +269,6 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 	projectModelToResource(obj.Payload, data)
 
-	params2 := project.NewGetProjectQuotasParams().WithProjectID(data.ID.ValueString())
-	obj2, err := r.Data.K.Project.GetProjectQuotas(params2, nil)
-	if err != nil {
-		errorReadGeneric(resp, err)
-		return
-	}
-	projectModelToQuota(obj2.Payload, data)
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -292,15 +285,6 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 	cfg := projectResourceToModel(data)
 	params := project.NewUpdateProjectParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg)
 	_, err := r.Data.K.Project.UpdateProject(params, nil)
-	if err != nil {
-		errorUpdateGeneric(resp, err)
-		return
-	}
-
-	// assign quotas
-	cfg2 := projectQuotaToModel(data)
-	params2 := project.NewUpdateProjectQuotasParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg2)
-	_, err = r.Data.K.Project.UpdateProjectQuotas(params2, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return

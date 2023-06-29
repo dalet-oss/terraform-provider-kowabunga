@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -41,6 +42,7 @@ type InstanceResourceModel struct {
 	Memory   types.Int64  `tfsdk:"mem"`
 	Adapters types.List   `tfsdk:"adapters"`
 	Volumes  types.List   `tfsdk:"volumes"`
+	Notify   types.Bool   `tfsdk:"notify"`
 }
 
 func (r *InstanceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -84,6 +86,12 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "The instance list of associated storage volumes",
 				ElementType:         types.StringType,
 				Required:            true,
+			},
+			KeyNotify: schema.BoolAttribute{
+				MarkdownDescription: "Whether to send email notification at creation",
+				Computed:            true,
+				Optional:            true,
+				Default:             booldefault.StaticBool(true),
 			},
 		},
 	}
@@ -155,7 +163,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	// create a new instance
 	cfg := instanceResourceToModel(data)
-	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
+	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg)
 	obj, err := r.Data.K.Project.CreateProjectZoneInstance(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
