@@ -8,11 +8,14 @@ import (
 	"github.com/dalet-oss/kowabunga-api/client/project"
 	"github.com/dalet-oss/kowabunga-api/models"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -46,6 +49,7 @@ type KceResourceModel struct {
 	ExtraDisk types.Int64  `tfsdk:"extra_disk"`
 	Public    types.Bool   `tfsdk:"public"`
 	Notify    types.Bool   `tfsdk:"notify"`
+	IP        types.String `tfsdk:"ip"`
 }
 
 func (r *KceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -54,6 +58,7 @@ func (r *KceResource) Metadata(ctx context.Context, req resource.MetadataRequest
 
 func (r *KceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyIP), req, resp)
 }
 
 func (r *KceResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -114,6 +119,13 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Optional:            true,
 				Default:             booldefault.StaticBool(true),
 			},
+			KeyIP: schema.StringAttribute{
+				MarkdownDescription: "IP",
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
@@ -132,6 +144,7 @@ func kceResourceToModel(d *KceResourceModel) models.KCE {
 		Memory:      &memSize,
 		Disk:        &diskSize,
 		DataDisk:    extraDiskSize,
+		IP:          d.IP.ValueString(),
 	}
 }
 
@@ -147,6 +160,7 @@ func kceModelToResource(r *models.KCE, d *KceResourceModel) {
 	d.Memory = types.Int64Value(memSize)
 	d.Disk = types.Int64Value(diskSize)
 	d.ExtraDisk = types.Int64Value(extraDiskSize)
+	d.IP = types.StringValue(r.IP)
 }
 
 func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

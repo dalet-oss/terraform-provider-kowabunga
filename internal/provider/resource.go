@@ -83,6 +83,7 @@ const (
 	KeyDisk            = "disk"
 	KeyExtraDisk       = "extra_disk"
 	KeyPublic          = "public"
+	KeyIP              = "ip"
 )
 
 const (
