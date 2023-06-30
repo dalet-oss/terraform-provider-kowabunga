@@ -8,6 +8,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -36,23 +37,24 @@ type ProjectResource struct {
 }
 
 type ProjectResourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	Desc         types.String `tfsdk:"desc"`
-	Owner        types.String `tfsdk:"owner"`
-	Email        types.String `tfsdk:"email"`
-	Domain       types.String `tfsdk:"domain"`
-	SubnetSize   types.Int64  `tfsdk:"subnet_size"`
-	RootPassword types.String `tfsdk:"root_password"`
-	User         types.String `tfsdk:"bootstrap_user"`
-	Pubkey       types.String `tfsdk:"bootstrap_pubkey"`
-	Tags         types.List   `tfsdk:"tags"`
-	Metadatas    types.Map    `tfsdk:"metadata"`
-	MaxInstances types.Int64  `tfsdk:"max_instances"`
-	MaxMemory    types.Int64  `tfsdk:"max_memory"`
-	MaxStorage   types.Int64  `tfsdk:"max_storage"`
-	MaxVCPUs     types.Int64  `tfsdk:"max_vcpus"`
-	Notify       types.Bool   `tfsdk:"notify"`
+	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Desc           types.String `tfsdk:"desc"`
+	Owner          types.String `tfsdk:"owner"`
+	Email          types.String `tfsdk:"email"`
+	Domain         types.String `tfsdk:"domain"`
+	SubnetSize     types.Int64  `tfsdk:"subnet_size"`
+	RootPassword   types.String `tfsdk:"root_password"`
+	User           types.String `tfsdk:"bootstrap_user"`
+	Pubkey         types.String `tfsdk:"bootstrap_pubkey"`
+	Tags           types.List   `tfsdk:"tags"`
+	Metadatas      types.Map    `tfsdk:"metadata"`
+	MaxInstances   types.Int64  `tfsdk:"max_instances"`
+	MaxMemory      types.Int64  `tfsdk:"max_memory"`
+	MaxStorage     types.Int64  `tfsdk:"max_storage"`
+	MaxVCPUs       types.Int64  `tfsdk:"max_vcpus"`
+	Notify         types.Bool   `tfsdk:"notify"`
+	PrivateSubnets types.Map    `tfsdk:"private_subnets"`
 }
 
 type ProjectQuotaModel struct {
@@ -64,6 +66,7 @@ func (r *ProjectResource) Metadata(ctx context.Context, req resource.MetadataReq
 
 func (r *ProjectResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyPrivateSubnets), req, resp)
 }
 
 func (r *ProjectResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -156,6 +159,11 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Default:             booldefault.StaticBool(true),
 			},
+			KeyPrivateSubnets: schema.MapAttribute{
+				Computed:            true,
+				MarkdownDescription: "List of project's private subnets zones association (read-only)",
+				ElementType:         types.StringType,
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
@@ -224,6 +232,11 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 		d.MaxStorage = types.Int64Value(int64(quotas.Storage) / HelperGbToBytes)
 		d.MaxVCPUs = types.Int64Value(int64(quotas.Vcpus))
 	}
+	privateSubnets := map[string]attr.Value{}
+	for _, p := range r.PrivateSubnets {
+		privateSubnets[p.Key] = types.StringValue(p.Value)
+	}
+	d.PrivateSubnets = basetypes.NewMapValueMust(types.StringType, privateSubnets)
 }
 
 func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

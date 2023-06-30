@@ -70,6 +70,7 @@ const (
 	KeyMaxStorage      = "max_storage"
 	KeyMaxVCPUs        = "max_vcpus"
 	KeyNotify          = "notify"
+	KeyPrivateSubnets  = "private_subnets"
 	KeyProject         = "project"
 	KeyType            = "type"
 	KeyOS              = "os"
