@@ -86,7 +86,7 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "Whether an IP address should be automatically assigned to the adapter. Useless if addresses have been specified",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(true),
 			},
 
 			KeyReserved: schema.BoolAttribute{
