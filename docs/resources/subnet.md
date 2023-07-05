@@ -18,10 +18,11 @@ Manages a subnet resource
 ### Required
 
 - `cidr` (String) Subnet CIDR
-- `dhcp` (List of String) List of subnet's dynamic DHCP ranges (format: 192.168.0.200-192.168.0.240)
 - `dns` (String) Subnet DNS server
 - `gateway` (String) Subnet router/gateway
 - `name` (String) Resource name
+- `reserved` (List of String) List of subnet's reserved IPv4 ranges (format: 192.168.0.200-192.168.0.240)
+- `routes` (List of String) List of extra routes to be access through designated gateway (format: 10.0.0.0/8).
 - `vnet` (String) Associated virtual network name or ID
 
 ### Optional

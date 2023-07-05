@@ -20,6 +20,7 @@ Manages a project resource
 - `email` (String) Email associated to the project to receive notifications.
 - `metadata` (Map of String) List of metadatas key/value associated with the project
 - `name` (String) Resource name
+- `owner` (String) Owner of the project.
 - `tags` (List of String) List of tags associated with the project
 
 ### Optional
@@ -32,10 +33,13 @@ Manages a project resource
 - `max_memory` (Number) Project maximum usable memory (expressed in GB)
 - `max_storage` (Number) Project maximum usable storage (expressed in GB)
 - `max_vcpus` (Number) Project maximum usable virtual CPUs
+- `notify` (Boolean) Whether to send email notification at creation
 - `root_password` (String) The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.
+- `subnet_size` (Number) Project requested VPC subnet size (defaults to /26)
 
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
+- `private_subnets` (Map of String) List of project's private subnets zones association (read-only)
 
 

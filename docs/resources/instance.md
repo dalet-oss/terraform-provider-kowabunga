@@ -28,6 +28,7 @@ Manages a virtual machine instance resource
 ### Optional
 
 - `desc` (String) Resource extended description
+- `notify` (Boolean) Whether to send email notification at creation
 
 ### Read-Only
 

@@ -24,7 +24,6 @@ Manages a virtual network resource
 
 ### Optional
 
-- `default` (Boolean) Whether to set virtual network as zone's default one
 - `desc` (String) Resource extended description
 - `private` (Boolean) Whether the virtual network is private or public
 

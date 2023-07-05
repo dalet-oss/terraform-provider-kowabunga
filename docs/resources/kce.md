@@ -28,13 +28,14 @@ Manages a virtual machine kce resource
 
 - `desc` (String) Resource extended description
 - `extra_disk` (Number) The KCE optional data disk size (expressed in GB, disabled by default, 0 to disable)
+- `notify` (Boolean) Whether to send email notification at creation
 - `pool` (String) Associated pool name or ID (zone's default if unspecified)
 - `public` (Boolean) Should KCE be exposed over public Internet ? (default: false)
-- `subnet` (String) Associated private subnet name or ID (zone's default if unspecified)
 - `template` (String) Associated template name or ID (zone's default pool's default if unspecified)
 
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
+- `ip` (String) IP
 
 
