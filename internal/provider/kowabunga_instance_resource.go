@@ -119,6 +119,10 @@ func instanceResourceToModel(d *InstanceResourceModel) models.Instance {
 
 // converts instance from Kowabunga API model to Terraform model
 func instanceModelToResource(r *models.Instance, d *InstanceResourceModel) {
+	if r == nil {
+		return
+	}
+
 	memSize := *r.Memory / HelperGbToBytes
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)

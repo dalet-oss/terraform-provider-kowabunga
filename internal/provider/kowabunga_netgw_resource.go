@@ -96,6 +96,10 @@ func netgwResourceToModel(d *NetGWResourceModel) models.NetGW {
 
 // converts netgw from Kowabunga API model to Terraform model
 func netgwModelToResource(r *models.NetGW, d *NetGWResourceModel) {
+	if r == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.Address = types.StringPointerValue(r.Address)

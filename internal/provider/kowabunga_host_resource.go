@@ -166,6 +166,10 @@ func hostResourceToModel(d *HostResourceModel) models.Host {
 
 // converts host from Kowabunga API model to Terraform model
 func hostModelToResource(r *models.Host, d *HostResourceModel) {
+	if r == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.Protocol = types.StringPointerValue(r.Protocol)

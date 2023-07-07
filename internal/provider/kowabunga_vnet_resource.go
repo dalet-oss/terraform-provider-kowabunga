@@ -98,6 +98,10 @@ func vnetResourceToModel(d *VNetResourceModel) models.VNet {
 
 // converts virtual network from Kowabunga API model to Terraform model
 func vnetModelToResource(r *models.VNet, d *VNetResourceModel) {
+	if r == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.VLAN = types.Int64PointerValue(r.Vlan)

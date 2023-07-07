@@ -115,6 +115,10 @@ func adapterResourceToModel(d *AdapterResourceModel) models.Adapter {
 
 // converts adapter from Kowabunga API model to Terraform model
 func adapterModelToResource(r *models.Adapter, d *AdapterResourceModel) {
+	if r == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.MAC = types.StringValue(r.Mac)

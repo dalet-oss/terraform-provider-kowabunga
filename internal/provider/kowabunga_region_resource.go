@@ -62,6 +62,10 @@ func regionResourceToModel(d *RegionResourceModel) models.Region {
 
 // converts region from Kowabunga API model to Terraform model
 func regionModelToResource(r *models.Region, d *RegionResourceModel) {
+	if r == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 }

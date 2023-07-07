@@ -207,6 +207,10 @@ func projectResourceToModel(d *ProjectResourceModel) models.Project {
 
 // converts project from Kowabunga API model to Terraform model
 func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
+	if r == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.Owner = types.StringPointerValue(r.Owner)

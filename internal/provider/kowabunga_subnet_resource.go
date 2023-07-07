@@ -131,6 +131,10 @@ func subnetResourceToModel(d *SubnetResourceModel) models.Subnet {
 
 // converts subnet from Kowabunga API model to Terraform model
 func subnetModelToResource(s *models.Subnet, d *SubnetResourceModel) {
+	if s == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(s.Name)
 	d.Desc = types.StringValue(s.Description)
 	d.CIDR = types.StringPointerValue(s.Cidr)

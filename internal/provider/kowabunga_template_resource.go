@@ -96,6 +96,10 @@ func templateResourceToModel(d *TemplateResourceModel) models.Template {
 
 // converts template from Kowabunga API model to Terraform model
 func templateModelToResource(r *models.Template, d *TemplateResourceModel) {
+	if r == nil {
+		return
+	}
+
 	d.Name = types.StringPointerValue(r.Name)
 	d.Desc = types.StringValue(r.Description)
 	d.Type = types.StringPointerValue(r.Type)

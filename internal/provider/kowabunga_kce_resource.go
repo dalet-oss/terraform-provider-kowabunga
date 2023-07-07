@@ -150,6 +150,10 @@ func kceResourceToModel(d *KceResourceModel) models.KCE {
 
 // converts kce from Kowabunga API model to Terraform model
 func kceModelToResource(r *models.KCE, d *KceResourceModel) {
+	if r == nil {
+		return
+	}
+
 	memSize := *r.Memory / HelperGbToBytes
 	diskSize := *r.Disk / HelperGbToBytes
 	extraDiskSize := r.DataDisk / HelperGbToBytes
