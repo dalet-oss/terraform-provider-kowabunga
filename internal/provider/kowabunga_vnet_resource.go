@@ -75,7 +75,7 @@ func (r *VNetResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			KeyPrivate: schema.BoolAttribute{
-				MarkdownDescription: "Whether the virtual network is private or public",
+				MarkdownDescription: "Whether the virtual network is private or public (default: **true**). The first virtual network to be created is always considered to be the default one.",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(true),

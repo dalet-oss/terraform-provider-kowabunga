@@ -59,7 +59,7 @@ func (r *InstanceResource) Configure(ctx context.Context, req resource.Configure
 
 func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a virtual machine instance resource",
+		MarkdownDescription: "Manages a raw virtual machine instance resource. Usage of instance resource requires preliminary creation of network adapters and storage volumes to be associated with the instance. It comes handy when one wants to deploy a specifically tuned virtual machine's configuration. For common usage, it is recommended to use the **kce** resource instead, which provides a standard ready-to-be-used virtual machine, offloading much of the complexity.",
 		Attributes: map[string]schema.Attribute{
 			KeyProject: schema.StringAttribute{
 				MarkdownDescription: "Associated project name or ID",
@@ -78,17 +78,17 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				Required:            true,
 			},
 			KeyAdapters: schema.ListAttribute{
-				MarkdownDescription: "The instance list of associated network adapters",
+				MarkdownDescription: "The list of network adapters to be associated with the instance",
 				ElementType:         types.StringType,
 				Required:            true,
 			},
 			KeyVolumes: schema.ListAttribute{
-				MarkdownDescription: "The instance list of associated storage volumes",
+				MarkdownDescription: "The list of storage volumes to be associated with the instance",
 				ElementType:         types.StringType,
 				Required:            true,
 			},
 			KeyNotify: schema.BoolAttribute{
-				MarkdownDescription: "Whether to send email notification at creation",
+				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(true),

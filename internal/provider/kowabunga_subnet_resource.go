@@ -89,7 +89,7 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				ElementType:         types.StringType,
 			},
 			KeyDefault: schema.BoolAttribute{
-				MarkdownDescription: "Whether to set subnet as virtual network's default one",
+				MarkdownDescription: "Whether to set subnet as virtual network's default one (default: **false**). The first subnet to be created is always considered as default one.",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),

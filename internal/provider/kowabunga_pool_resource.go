@@ -83,7 +83,7 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			KeyHost: schema.StringAttribute{
-				MarkdownDescription: "Host to bind the storage pool to",
+				MarkdownDescription: "Host to bind the storage pool to (default: none)",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
@@ -114,19 +114,19 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Sensitive:           true,
 			},
 			KeyPrice: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host monthly price value",
+				MarkdownDescription: "libvirt host monthly price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
 				Default:             int64default.StaticInt64(0),
 			},
 			KeyCurrency: schema.StringAttribute{
-				MarkdownDescription: "libvirt host monthly price currency",
+				MarkdownDescription: "libvirt host monthly price currency (default: **EUR**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             stringdefault.StaticString("EUR"),
 			},
 			KeyDefault: schema.BoolAttribute{
-				MarkdownDescription: "Whether to set pool as zone's default one",
+				MarkdownDescription: "Whether to set pool as zone's default one (default: **false**). First pool to be created is always considered as default's one.",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),

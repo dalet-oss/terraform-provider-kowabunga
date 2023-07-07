@@ -22,10 +22,10 @@ Manages a pool template resource
 
 ### Optional
 
-- `default` (Boolean) Whether to set pool as zone's default one
+- `default` (Boolean) Whether to set template as zone's default one (default: **false**). The first template to be created is always considered as default.
 - `desc` (String) Resource extended description
-- `os` (String) The template type (valid options: 'os', 'raw')
-- `type` (String) The template type (valid options: 'os', 'raw')
+- `os` (String) The template type (valid options: 'linux', 'windows'). Defaults to **linux**.
+- `type` (String) The template type (valid options: 'os', 'raw'). Defaults to **os**.
 
 ### Read-Only
 

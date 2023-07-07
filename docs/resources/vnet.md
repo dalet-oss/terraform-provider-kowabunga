@@ -25,7 +25,7 @@ Manages a virtual network resource
 ### Optional
 
 - `desc` (String) Resource extended description
-- `private` (Boolean) Whether the virtual network is private or public
+- `private` (Boolean) Whether the virtual network is private or public (default: **true**). The first virtual network to be created is always considered to be the default one.
 
 ### Read-Only
 

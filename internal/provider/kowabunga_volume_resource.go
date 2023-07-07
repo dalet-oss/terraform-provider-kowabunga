@@ -84,7 +84,7 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Required:            true,
 			},
 			KeyResizable: schema.BoolAttribute{
-				MarkdownDescription: "Is the storage volume allowed to grow (filesystem dependant) ?",
+				MarkdownDescription: "Is the storage volume allowed to grow (filesystem dependant) ? (default: **false**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),

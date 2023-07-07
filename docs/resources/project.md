@@ -28,12 +28,12 @@ Manages a project resource
 - `bootstrap_pubkey` (String) The project default public SSH key, to be associated to bootstrap user. Will use Kowabunga's default configuration one if unspecified.
 - `bootstrap_user` (String) The project default service user name, created at cloud-init instance bootstrap phase. Will use Kowabunga's default configuration one if unspecified.
 - `desc` (String) Resource extended description
-- `domain` (String) Internal domain name associated to the project (e.g. myproject.acme.com).
-- `max_instances` (Number) Project maximum deployable instances
-- `max_memory` (Number) Project maximum usable memory (expressed in GB)
-- `max_storage` (Number) Project maximum usable storage (expressed in GB)
-- `max_vcpus` (Number) Project maximum usable virtual CPUs
-- `notify` (Boolean) Whether to send email notification at creation
+- `domain` (String) Internal domain name associated to the project (e.g. myproject.acme.com). (default: none)
+- `max_instances` (Number) Project maximum deployable instances. Defaults to 0 (unlimited).
+- `max_memory` (Number) Project maximum usable memory (expressed in GB). Defaults to 0 (unlimited).
+- `max_storage` (Number) Project maximum usable storage (expressed in GB). Defaults to 0 (unlimited).
+- `max_vcpus` (Number) Project maximum usable virtual CPUs. Defaults to 0 (unlimited).
+- `notify` (Boolean) Whether to send email notification at creation (default: **true**)
 - `root_password` (String) The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.
 - `subnet_size` (Number) Project requested VPC subnet size (defaults to /26)
 

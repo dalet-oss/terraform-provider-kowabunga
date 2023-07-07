@@ -27,7 +27,7 @@ Manages a subnet resource
 
 ### Optional
 
-- `default` (Boolean) Whether to set subnet as virtual network's default one
+- `default` (Boolean) Whether to set subnet as virtual network's default one (default: **false**). The first subnet to be created is always considered as default one.
 - `desc` (String) Resource extended description
 
 ### Read-Only

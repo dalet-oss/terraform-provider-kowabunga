@@ -80,7 +80,7 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			KeyPort: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host API port number",
+				MarkdownDescription: "libvirt host API port number (defaults to 0, i.e. auto-detected)",
 				Computed:            true,
 				Optional:            true,
 				Validators: []validator.Int64{
@@ -93,7 +93,7 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			KeyTlsKey: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API TLS private key",
+				MarkdownDescription: "libvirt host API TLS private key (default: none)",
 				Optional:            true,
 				Sensitive:           true,
 				Computed:            true,
@@ -103,7 +103,7 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			KeyTlsCert: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API TLS certificate",
+				MarkdownDescription: "libvirt host API TLS certificate (default: none)",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
@@ -112,7 +112,7 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			KeyTlsCA: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API TLS CA",
+				MarkdownDescription: "libvirt host API TLS CA (default: none)",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
@@ -121,13 +121,13 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			KeyPrice: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host monthly price value",
+				MarkdownDescription: "libvirt host monthly price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
 				Default:             int64default.StaticInt64(0),
 			},
 			KeyCurrency: schema.StringAttribute{
-				MarkdownDescription: "libvirt host monthly price currency",
+				MarkdownDescription: "libvirt host monthly price currency (default: **EUR**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             stringdefault.StaticString("EUR"),

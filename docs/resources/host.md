@@ -24,13 +24,13 @@ Manages a host resource
 
 ### Optional
 
-- `ca` (String) libvirt host API TLS CA
-- `cert` (String) libvirt host API TLS certificate
-- `currency` (String) libvirt host monthly price currency
+- `ca` (String) libvirt host API TLS CA (default: none)
+- `cert` (String) libvirt host API TLS certificate (default: none)
+- `currency` (String) libvirt host monthly price currency (default: **EUR**)
 - `desc` (String) Resource extended description
-- `key` (String, Sensitive) libvirt host API TLS private key
-- `port` (Number) libvirt host API port number
-- `price` (Number) libvirt host monthly price value
+- `key` (String, Sensitive) libvirt host API TLS private key (default: none)
+- `port` (Number) libvirt host API port number (defaults to 0, i.e. auto-detected)
+- `price` (Number) libvirt host monthly price value (default: 0)
 
 ### Read-Only
 

@@ -3,12 +3,12 @@
 page_title: "kowabunga_kce Resource - terraform-provider-kowabunga"
 subcategory: ""
 description: |-
-  Manages a virtual machine kce resource
+  Manages a virtual machine KCE resource. KCE (stands for Kowabunga Compute Engine) is an seamless automated way to create virtual machine resources. It abstract the complexity of manually creating instance, volumes and network adapters resources and binding them together. It is the RECOMMENDED way to create and manipulate virtual machine services, unless a specific hwardware configuration is required. KCE provides 2 network adapters, a public (WAN) and a private (LAN/VPC) one, as well as up to two disks (first one for OS, optional second one for extra data).
 ---
 
 # kowabunga_kce (Resource)
 
-Manages a virtual machine kce resource
+Manages a virtual machine KCE resource. **KCE** (stands for *Kowabunga Compute Engine*) is an seamless automated way to create virtual machine resources. It abstract the complexity of manually creating instance, volumes and network adapters resources and binding them together. It is the **RECOMMENDED** way to create and manipulate virtual machine services, unless a specific hwardware configuration is required. KCE provides 2 network adapters, a public (WAN) and a private (LAN/VPC) one, as well as up to two disks (first one for OS, optional second one for extra data).
 
 
 
@@ -28,9 +28,9 @@ Manages a virtual machine kce resource
 
 - `desc` (String) Resource extended description
 - `extra_disk` (Number) The KCE optional data disk size (expressed in GB, disabled by default, 0 to disable)
-- `notify` (Boolean) Whether to send email notification at creation
+- `notify` (Boolean) Whether to send email notification at creation (default: **true**)
 - `pool` (String) Associated pool name or ID (zone's default if unspecified)
-- `public` (Boolean) Should KCE be exposed over public Internet ? (default: false)
+- `public` (Boolean) Should KCE be exposed over public Internet ? (default: **false**)
 - `template` (String) Associated template name or ID (zone's default pool's default if unspecified)
 
 ### Read-Only

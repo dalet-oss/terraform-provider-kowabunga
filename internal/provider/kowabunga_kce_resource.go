@@ -67,7 +67,7 @@ func (r *KceResource) Configure(ctx context.Context, req resource.ConfigureReque
 
 func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a virtual machine kce resource",
+		MarkdownDescription: "Manages a virtual machine KCE resource. **KCE** (stands for *Kowabunga Compute Engine*) is an seamless automated way to create virtual machine resources. It abstract the complexity of manually creating instance, volumes and network adapters resources and binding them together. It is the **RECOMMENDED** way to create and manipulate virtual machine services, unless a specific hwardware configuration is required. KCE provides 2 network adapters, a public (WAN) and a private (LAN/VPC) one, as well as up to two disks (first one for OS, optional second one for extra data).",
 		Attributes: map[string]schema.Attribute{
 			KeyProject: schema.StringAttribute{
 				MarkdownDescription: "Associated project name or ID",
@@ -108,13 +108,13 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Default:             int64default.StaticInt64(0),
 			},
 			KeyPublic: schema.BoolAttribute{
-				MarkdownDescription: "Should KCE be exposed over public Internet ? (default: false)",
+				MarkdownDescription: "Should KCE be exposed over public Internet ? (default: **false**)",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
 			},
 			KeyNotify: schema.BoolAttribute{
-				MarkdownDescription: "Whether to send email notification at creation",
+				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(true),

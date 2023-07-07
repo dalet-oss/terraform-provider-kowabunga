@@ -24,12 +24,12 @@ Manages a pool resource
 ### Optional
 
 - `address` (String) Ceph RBD monitor address or hostname
-- `currency` (String) libvirt host monthly price currency
-- `default` (Boolean) Whether to set pool as zone's default one
+- `currency` (String) libvirt host monthly price currency (default: **EUR**)
+- `default` (Boolean) Whether to set pool as zone's default one (default: **false**). First pool to be created is always considered as default's one.
 - `desc` (String) Resource extended description
-- `host` (String) Host to bind the storage pool to
+- `host` (String) Host to bind the storage pool to (default: none)
 - `port` (Number) Ceph RBD monitor port number
-- `price` (Number) libvirt host monthly price value
+- `price` (Number) libvirt host monthly price value (default: 0)
 - `secret` (String, Sensitive) CephX client authentication UUID
 - `type` (String) Pool type ('local' or 'rbd', defaults to 'rbd')
 

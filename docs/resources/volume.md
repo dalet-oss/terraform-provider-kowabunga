@@ -27,7 +27,7 @@ Manages a storage volume resource
 
 - `desc` (String) Resource extended description
 - `pool` (String) Associated pool name or ID (zone's default if unspecified)
-- `resizable` (Boolean) Is the storage volume allowed to grow (filesystem dependant) ?
+- `resizable` (Boolean) Is the storage volume allowed to grow (filesystem dependant) ? (default: **false**)
 - `template` (String) The template name or ID
 
 ### Read-Only

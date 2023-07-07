@@ -62,19 +62,19 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 				Required:            true,
 			},
 			KeyType: schema.StringAttribute{
-				MarkdownDescription: "The template type (valid options: 'os', 'raw')",
+				MarkdownDescription: "The template type (valid options: 'os', 'raw'). Defaults to **os**.",
 				Computed:            true,
 				Optional:            true,
 				Default:             stringdefault.StaticString(models.TemplateTypeOs),
 			},
 			KeyOS: schema.StringAttribute{
-				MarkdownDescription: "The template type (valid options: 'os', 'raw')",
+				MarkdownDescription: "The template type (valid options: 'linux', 'windows'). Defaults to **linux**.",
 				Computed:            true,
 				Optional:            true,
 				Default:             stringdefault.StaticString(models.TemplateOsLinux),
 			},
 			KeyDefault: schema.BoolAttribute{
-				MarkdownDescription: "Whether to set pool as zone's default one",
+				MarkdownDescription: "Whether to set template as zone's default one (default: **false**). The first template to be created is always considered as default.",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),

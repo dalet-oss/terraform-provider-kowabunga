@@ -83,14 +83,14 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			KeyAssign: schema.BoolAttribute{
-				MarkdownDescription: "Whether an IP address should be automatically assigned to the adapter. Useless if addresses have been specified",
+				MarkdownDescription: "Whether an IP address should be automatically assigned to the adapter (default: **true). Useless if addresses have been specified",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(true),
 			},
 
 			KeyReserved: schema.BoolAttribute{
-				MarkdownDescription: "Whether the network adapter is reserved (e.g. router), i.e. where the same hardware address can be reused over several subnets",
+				MarkdownDescription: "Whether the network adapter is reserved (e.g. router), i.e. where the same hardware address can be reused over several subnets (default: **false**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),
