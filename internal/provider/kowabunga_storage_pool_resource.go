@@ -24,21 +24,21 @@ import (
 )
 
 const (
-	PoolResourceName = "pool"
+	StoragePoolResourceName = "storage_pool"
 )
 
-var _ resource.Resource = &PoolResource{}
-var _ resource.ResourceWithImportState = &PoolResource{}
+var _ resource.Resource = &StoragePoolResource{}
+var _ resource.ResourceWithImportState = &StoragePoolResource{}
 
-func NewPoolResource() resource.Resource {
-	return &PoolResource{}
+func NewStoragePoolResource() resource.Resource {
+	return &StoragePoolResource{}
 }
 
-type PoolResource struct {
+type StoragePoolResource struct {
 	Data *KowabungaProviderData
 }
 
-type PoolResourceModel struct {
+type StoragePoolResourceModel struct {
 	ID       types.String `tfsdk:"id"`
 	Name     types.String `tfsdk:"name"`
 	Desc     types.String `tfsdk:"desc"`
@@ -54,28 +54,28 @@ type PoolResourceModel struct {
 	Default  types.Bool   `tfsdk:"default"`
 }
 
-func (r *PoolResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, PoolResourceName)
+func (r *StoragePoolResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, StoragePoolResourceName)
 }
 
-func (r *PoolResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *StoragePoolResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 }
 
-func (r *PoolResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *StoragePoolResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a pool resource",
+		MarkdownDescription: "Manages a storage pool resource",
 		Attributes: map[string]schema.Attribute{
 			KeyZone: schema.StringAttribute{
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
 			},
 			KeyType: schema.StringAttribute{
-				MarkdownDescription: "Pool type ('local' or 'rbd', defaults to 'rbd')",
+				MarkdownDescription: "Storage pool type ('local' or 'rbd', defaults to 'rbd')",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
@@ -136,8 +136,8 @@ func (r *PoolResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
 }
 
-// converts pool from Terraform model to Kowabunga API model
-func poolResourceToModel(d *PoolResourceModel) models.StoragePool {
+// converts storage pool from Terraform model to Kowabunga API model
+func storagePoolResourceToModel(d *StoragePoolResourceModel) models.StoragePool {
 	cost := models.Cost{
 		Price:    d.Price.ValueInt64Pointer(),
 		Currency: d.Currency.ValueStringPointer(),
@@ -154,8 +154,8 @@ func poolResourceToModel(d *PoolResourceModel) models.StoragePool {
 	}
 }
 
-// converts pool from Kowabunga API model to Terraform model
-func poolModelToResource(r *models.StoragePool, d *PoolResourceModel) {
+// converts storage pool from Kowabunga API model to Terraform model
+func storagePoolModelToResource(r *models.StoragePool, d *StoragePoolResourceModel) {
 	if r == nil {
 		return
 	}
@@ -173,8 +173,8 @@ func poolModelToResource(r *models.StoragePool, d *PoolResourceModel) {
 	}
 }
 
-func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *PoolResourceModel
+func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *StoragePoolResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -194,7 +194,7 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 	hostId, _ := getHostID(r.Data, data.Host.ValueString())
 
 	// create a new storage pool
-	cfg := poolResourceToModel(data)
+	cfg := storagePoolResourceToModel(data)
 	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg)
 	if hostId != "" {
 		params = params.WithHostID(&hostId)
@@ -205,7 +205,7 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// set pool as default
+	// set storage pool as default
 	if data.Default.ValueBool() {
 		params2 := zone.NewUpdateZoneDefaultPoolParams().WithZoneID(zoneId).WithPoolID(obj.Payload.ID)
 		_, err = r.Data.K.Zone.UpdateZoneDefaultPool(params2, nil)
@@ -216,13 +216,13 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
-	poolModelToResource(obj.Payload, data) // read back resulting object
-	tflog.Trace(ctx, "created pool resource")
+	storagePoolModelToResource(obj.Payload, data) // read back resulting object
+	tflog.Trace(ctx, "created storage pool resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *PoolResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *PoolResourceModel
+func (r *StoragePoolResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *StoragePoolResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -238,12 +238,12 @@ func (r *PoolResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	poolModelToResource(obj.Payload, data)
+	storagePoolModelToResource(obj.Payload, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *PoolResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *PoolResourceModel
+func (r *StoragePoolResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *StoragePoolResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -252,7 +252,7 @@ func (r *PoolResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := poolResourceToModel(data)
+	cfg := storagePoolResourceToModel(data)
 	params := pool.NewUpdatePoolParams().WithPoolID(data.ID.ValueString()).WithBody(&cfg)
 	_, err := r.Data.K.Pool.UpdatePool(params, nil)
 	if err != nil {
@@ -263,8 +263,8 @@ func (r *PoolResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *PoolResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *PoolResourceModel
+func (r *StoragePoolResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *StoragePoolResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return

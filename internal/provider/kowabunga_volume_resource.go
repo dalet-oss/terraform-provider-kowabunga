@@ -68,7 +68,7 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Required:            true,
 			},
 			KeyPool: schema.StringAttribute{
-				MarkdownDescription: "Associated pool name or ID (zone's default if unspecified)",
+				MarkdownDescription: "Associated storage pool name or ID (zone's default if unspecified)",
 				Optional:            true,
 			},
 			KeyType: schema.StringAttribute{

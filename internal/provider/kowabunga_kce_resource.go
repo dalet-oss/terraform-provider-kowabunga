@@ -78,13 +78,13 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Required:            true,
 			},
 			KeyPool: schema.StringAttribute{
-				MarkdownDescription: "Associated pool name or ID (zone's default if unspecified)",
+				MarkdownDescription: "Associated storage pool name or ID (zone's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
 			},
 			KeyTemplate: schema.StringAttribute{
-				MarkdownDescription: "Associated template name or ID (zone's default pool's default if unspecified)",
+				MarkdownDescription: "Associated template name or ID (zone's default storage pool's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),

@@ -55,10 +55,10 @@ func (r *TemplateResource) Configure(ctx context.Context, req resource.Configure
 
 func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a pool template resource",
+		MarkdownDescription: "Manages a storage pool's template resource",
 		Attributes: map[string]schema.Attribute{
 			KeyPool: schema.StringAttribute{
-				MarkdownDescription: "Associated pool name or ID",
+				MarkdownDescription: "Associated storage pool name or ID",
 				Required:            true,
 			},
 			KeyType: schema.StringAttribute{
