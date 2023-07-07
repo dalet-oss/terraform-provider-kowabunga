@@ -3,12 +3,12 @@
 page_title: "kowabunga_template Resource - terraform-provider-kowabunga"
 subcategory: ""
 description: |-
-  Manages a pool template resource
+  Manages a storage pool's template resource
 ---
 
 # kowabunga_template (Resource)
 
-Manages a pool template resource
+Manages a storage pool's template resource
 
 
 
@@ -18,7 +18,7 @@ Manages a pool template resource
 ### Required
 
 - `name` (String) Resource name
-- `pool` (String) Associated pool name or ID
+- `pool` (String) Associated storage pool name or ID
 
 ### Optional
 
