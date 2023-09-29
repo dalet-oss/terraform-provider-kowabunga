@@ -178,7 +178,13 @@ func ipv4MaskString(m []byte) string {
 }
 
 func (r *AdapterResource) GetSubnetData(data *AdapterResourceModel) error {
-	params := subnet.NewGetSubnetParams().WithSubnetID(data.Subnet.ValueString())
+	// find real subnet id if a string was provided
+	subnetId, err := getSubnetID(r.Data, data.Subnet.ValueString())
+	if err != nil {
+		return err
+	}
+
+	params := subnet.NewGetSubnetParams().WithSubnetID(subnetId)
 	obj, err := r.Data.K.Subnet.GetSubnet(params, nil)
 	if err != nil {
 		return err
