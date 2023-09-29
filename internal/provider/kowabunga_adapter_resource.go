@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"github.com/3th1nk/cidr"
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/client/adapter"
@@ -9,9 +11,11 @@ import (
 	"github.com/dalet-oss/kowabunga-api/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -35,14 +39,18 @@ type AdapterResource struct {
 }
 
 type AdapterResourceModel struct {
-	ID        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	Desc      types.String `tfsdk:"desc"`
-	Subnet    types.String `tfsdk:"subnet"`
-	MAC       types.String `tfsdk:"hwaddress"`
-	Addresses types.List   `tfsdk:"addresses"`
-	Assign    types.Bool   `tfsdk:"assign"`
-	Reserved  types.Bool   `tfsdk:"reserved"`
+	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Desc           types.String `tfsdk:"desc"`
+	Subnet         types.String `tfsdk:"subnet"`
+	MAC            types.String `tfsdk:"hwaddress"`
+	Addresses      types.List   `tfsdk:"addresses"`
+	Assign         types.Bool   `tfsdk:"assign"`
+	Reserved       types.Bool   `tfsdk:"reserved"`
+	CIDR           types.String `tfsdk:"cidr"`
+	Netmask        types.String `tfsdk:"netmask"`
+	NetmaskBitSize types.Int64  `tfsdk:"netmask_bitsize"`
+	Gateway        types.String `tfsdk:"gateway"`
 }
 
 func (r *AdapterResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -51,6 +59,10 @@ func (r *AdapterResource) Metadata(ctx context.Context, req resource.MetadataReq
 
 func (r *AdapterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyCIDR), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyNetmask), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyNetmaskBitSize), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyGateway), req, resp)
 }
 
 func (r *AdapterResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -95,6 +107,34 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),
 			},
+			KeyCIDR: schema.StringAttribute{
+				MarkdownDescription: "Network mask CIDR (read-only), e.g. 192.168.0.0/24",
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			KeyNetmask: schema.StringAttribute{
+				MarkdownDescription: "Network mask (read-only), e.g. 255.255.255.0",
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			KeyNetmaskBitSize: schema.Int64Attribute{
+				MarkdownDescription: "Network mask size (read-only), e.g 24",
+				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+			},
+			KeyGateway: schema.StringAttribute{
+				MarkdownDescription: "Network Gateway (read-only)",
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
@@ -128,6 +168,13 @@ func adapterModelToResource(r *models.Adapter, d *AdapterResourceModel) {
 	}
 	d.Addresses, _ = types.ListValue(types.StringType, addresses)
 	d.Reserved = types.BoolPointerValue(r.Reserved)
+}
+
+func ipv4MaskString(m []byte) string {
+	if len(m) != 4 {
+		return ""
+	}
+	return fmt.Sprintf("%d.%d.%d.%d", m[0], m[1], m[2], m[3])
 }
 
 func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -184,6 +231,26 @@ func (r *AdapterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	adapterModelToResource(obj.Payload, data)
+
+	paramsSubnet := subnet.NewGetSubnetParams().WithSubnetID(data.Subnet.ValueString())
+	objSubnet, err := r.Data.K.Subnet.GetSubnet(paramsSubnet, nil)
+	if err != nil {
+		errorReadGeneric(resp, err)
+		return
+	}
+
+	data.CIDR = types.StringPointerValue(objSubnet.Payload.Cidr)
+
+	c, err := cidr.Parse(*objSubnet.Payload.Cidr)
+	if err != nil {
+		errorReadGeneric(resp, err)
+		return
+	}
+	data.Netmask = types.StringValue(ipv4MaskString(c.Mask()))
+	size, _ := c.MaskSize()
+	data.NetmaskBitSize = types.Int64Value(int64(size))
+	data.Gateway = types.StringPointerValue(objSubnet.Payload.Gateway)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 

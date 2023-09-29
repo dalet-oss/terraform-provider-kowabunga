@@ -120,7 +120,7 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Default:             booldefault.StaticBool(true),
 			},
 			KeyIP: schema.StringAttribute{
-				MarkdownDescription: "IP",
+				MarkdownDescription: "IP (read-only)",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),

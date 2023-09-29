@@ -46,6 +46,8 @@ const (
 	KeyDefault         = "default"
 	KeySubnet          = "subnet"
 	KeyCIDR            = "cidr"
+	KeyNetmask         = "netmask"
+	KeyNetmaskBitSize  = "netmask_bitsize"
 	KeyGateway         = "gateway"
 	KeyDNS             = "dns"
 	KeyRoutes          = "routes"
