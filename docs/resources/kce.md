@@ -36,6 +36,6 @@ Manages a virtual machine KCE resource. **KCE** (stands for *Kowabunga Compute E
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-- `ip` (String) IP
+- `ip` (String) IP (read-only)
 
 

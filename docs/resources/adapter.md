@@ -30,6 +30,10 @@ Manages a network adapter resource
 
 ### Read-Only
 
+- `cidr` (String) Network mask CIDR (read-only), e.g. 192.168.0.0/24
+- `gateway` (String) Network Gateway (read-only)
 - `id` (String) Resource object internal identifier
+- `netmask` (String) Network mask (read-only), e.g. 255.255.255.0
+- `netmask_bitsize` (Number) Network mask size (read-only), e.g 24
 
 
