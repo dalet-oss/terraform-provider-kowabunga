@@ -177,6 +177,27 @@ func ipv4MaskString(m []byte) string {
 	return fmt.Sprintf("%d.%d.%d.%d", m[0], m[1], m[2], m[3])
 }
 
+func (r *AdapterResource) GetSubnetData(data *AdapterResourceModel) error {
+	params := subnet.NewGetSubnetParams().WithSubnetID(data.Subnet.ValueString())
+	obj, err := r.Data.K.Subnet.GetSubnet(params, nil)
+	if err != nil {
+		return err
+	}
+
+	data.CIDR = types.StringPointerValue(obj.Payload.Cidr)
+
+	c, err := cidr.Parse(*obj.Payload.Cidr)
+	if err != nil {
+		return err
+	}
+	data.Netmask = types.StringValue(ipv4MaskString(c.Mask()))
+	size, _ := c.MaskSize()
+	data.NetmaskBitSize = types.Int64Value(int64(size))
+	data.Gateway = types.StringPointerValue(obj.Payload.Gateway)
+
+	return nil
+}
+
 func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data *AdapterResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -209,6 +230,12 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 
 	data.ID = types.StringValue(obj.Payload.ID)
 	adapterModelToResource(obj.Payload, data) // read back resulting object
+	err = r.GetSubnetData(data)
+	if err != nil {
+		errorCreateGeneric(resp, err)
+		return
+	}
+
 	tflog.Trace(ctx, "created adapter resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -232,24 +259,11 @@ func (r *AdapterResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	adapterModelToResource(obj.Payload, data)
 
-	paramsSubnet := subnet.NewGetSubnetParams().WithSubnetID(data.Subnet.ValueString())
-	objSubnet, err := r.Data.K.Subnet.GetSubnet(paramsSubnet, nil)
+	err = r.GetSubnetData(data)
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
-
-	data.CIDR = types.StringPointerValue(objSubnet.Payload.Cidr)
-
-	c, err := cidr.Parse(*objSubnet.Payload.Cidr)
-	if err != nil {
-		errorReadGeneric(resp, err)
-		return
-	}
-	data.Netmask = types.StringValue(ipv4MaskString(c.Mask()))
-	size, _ := c.MaskSize()
-	data.NetmaskBitSize = types.Int64Value(int64(size))
-	data.Gateway = types.StringPointerValue(objSubnet.Payload.Gateway)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
