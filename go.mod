@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/3th1nk/cidr v0.2.0
-	github.com/dalet-oss/kowabunga-api v0.7.7
+	github.com/dalet-oss/kowabunga-api v0.8.0
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/hashicorp/terraform-plugin-docs v0.14.1
