@@ -2,6 +2,9 @@ BINDIR = bin
 BIN = terraform-provider-kowabunga
 LDFLAGS += -X main.version=$$(git describe --always --abbrev=40 --dirty)
 
+GOVULNCHECK = $(BINDIR)/govulncheck
+GOVULNCHECK_VERSION = v1.0.1
+
 GOLINT = $(BINDIR)/golangci-lint
 GOLINT_VERSION = v1.52.2
 
@@ -28,6 +31,14 @@ get-lint: ; $(info $(M) downloading go-lint…) @
 .PHONY: lint
 lint: get-lint ; $(info $(M) running linter…) @
 	$Q $(GOLINT) run -e SA1019 ./... ; exit 0
+
+.PHONY: get-govulncheck
+get-govulncheck: ; $(info $(M) downloading govulncheck…) @
+	$Q test -x $(GOVULNCHECK) || GOBIN="$(PWD)/$(BINDIR)/" go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+
+.PHONY: vuln
+vuln: get-govulncheck ; $(info $(M) running govulncheck…) @ ## Check for known vulnerabilities
+	$Q $(GOVULNCHECK) ./... ; exit 0
 
 .PHONY: vet
 vet: ; $(info $(M) running vetter…) @
