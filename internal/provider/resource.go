@@ -87,6 +87,9 @@ const (
 	KeyExtraDisk       = "extra_disk"
 	KeyPublic          = "public"
 	KeyIP              = "ip"
+	KeyEndpoint        = "endpoint"
+	KeyFS              = "fs"
+	KeyBackends        = "backends"
 )
 
 const (
