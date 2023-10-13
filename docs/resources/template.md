@@ -30,5 +30,3 @@ Manages a storage pool's template resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

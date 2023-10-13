@@ -35,5 +35,3 @@ Manages a network adapter resource
 - `id` (String) Resource object internal identifier
 - `netmask` (String) Network mask (read-only), e.g. 255.255.255.0
 - `netmask_bitsize` (Number) Network mask size (read-only), e.g 24
-
-

@@ -28,5 +28,3 @@ Manages a DNS record resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

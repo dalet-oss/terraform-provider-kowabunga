@@ -35,5 +35,3 @@ Manages a host resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

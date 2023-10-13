@@ -33,5 +33,3 @@ Manages a storage volume resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

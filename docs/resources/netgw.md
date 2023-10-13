@@ -30,5 +30,3 @@ Manages a netgw resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

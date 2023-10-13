@@ -33,5 +33,3 @@ Manages a raw virtual machine instance resource. Usage of instance resource requ
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

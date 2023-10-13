@@ -41,5 +41,3 @@ Manages a project resource
 
 - `id` (String) Resource object internal identifier
 - `private_subnets` (Map of String) List of project's private subnets zones association (read-only)
-
-

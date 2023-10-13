@@ -36,5 +36,3 @@ Manages a storage pool resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

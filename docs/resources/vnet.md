@@ -30,5 +30,3 @@ Manages a virtual network resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-

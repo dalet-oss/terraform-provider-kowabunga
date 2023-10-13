@@ -26,5 +26,3 @@ Manages a region resource
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-
-
