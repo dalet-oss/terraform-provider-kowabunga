@@ -4,3 +4,6 @@ terraform-provider-kowabunga
 terraform.tfstate*
 .terraform
 .terraform.lock.hcl
+sample/
+infra/
+cleanup.sh
