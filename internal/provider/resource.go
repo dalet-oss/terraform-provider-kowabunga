@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
 	"github.com/dalet-oss/kowabunga-api/client/host"
+	"github.com/dalet-oss/kowabunga-api/client/nfs"
 	"github.com/dalet-oss/kowabunga-api/client/pool"
 	"github.com/dalet-oss/kowabunga-api/client/project"
 	"github.com/dalet-oss/kowabunga-api/client/region"
@@ -30,6 +31,7 @@ const (
 	KeyZone            = "zone"
 	KeyToken           = "token"
 	KeyProtocol        = "protocol"
+	KeyProtocols       = "protocols"
 	KeyAddress         = "address"
 	KeyPort            = "port"
 	KeyTlsKey          = "key"
@@ -90,6 +92,8 @@ const (
 	KeyEndpoint        = "endpoint"
 	KeyFS              = "fs"
 	KeyBackends        = "backends"
+	KeyNfs             = "nfs"
+	KeyAccessType      = "access_type"
 )
 
 const (
@@ -106,6 +110,7 @@ const (
 	ErrorUnknownSubnet        = "Unknown subnet"
 	ErrorUnknownProject       = "Unknown project"
 	ErrorUnknownPool          = "Unknown storage pool"
+	ErrorUnknownNfs           = "Unknown NFS storage"
 	ErrorUnknownTemplate      = "Unknown volume template"
 	ErrorUnknownHost          = "Unknown host"
 )
@@ -328,6 +333,30 @@ func getPoolID(data *KowabungaProviderData, id string) (string, error) {
 	}
 
 	return "", fmt.Errorf(ErrorUnknownPool)
+}
+
+func getNfsID(data *KowabungaProviderData, id string) (string, error) {
+	// let's suppose param is a proper NFS storage ID
+	p1 := nfs.NewGetNfsStorageParams().WithNfsID(id)
+	p, err := data.K.Nfs.GetNfsStorage(p1, nil)
+	if err == nil {
+		return p.Payload.ID, nil
+	}
+
+	// fall back, it may be a NFS storage name then, finds its associated ID
+	p2 := nfs.NewGetAllNfsStoragesParams()
+	storages, err := data.K.Nfs.GetAllNfsStorages(p2, nil)
+	if err == nil {
+		for _, s := range storages.Payload {
+			p := nfs.NewGetNfsStorageParams().WithNfsID(s)
+			ns, err := data.K.Nfs.GetNfsStorage(p, nil)
+			if err == nil && *ns.Payload.Name == id {
+				return ns.Payload.ID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf(ErrorUnknownNfs)
 }
 
 func getTemplateID(data *KowabungaProviderData, id string) (string, error) {
