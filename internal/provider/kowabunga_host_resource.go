@@ -4,9 +4,9 @@ import (
 	"context"
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/client/host"
-	"github.com/dalet-oss/kowabunga-api/client/zone"
-	"github.com/dalet-oss/kowabunga-api/models"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/host"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"

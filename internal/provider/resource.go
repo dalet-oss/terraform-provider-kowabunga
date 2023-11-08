@@ -11,15 +11,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
-	"github.com/dalet-oss/kowabunga-api/client/host"
-	"github.com/dalet-oss/kowabunga-api/client/nfs"
-	"github.com/dalet-oss/kowabunga-api/client/pool"
-	"github.com/dalet-oss/kowabunga-api/client/project"
-	"github.com/dalet-oss/kowabunga-api/client/region"
-	"github.com/dalet-oss/kowabunga-api/client/subnet"
-	"github.com/dalet-oss/kowabunga-api/client/template"
-	"github.com/dalet-oss/kowabunga-api/client/vnet"
-	"github.com/dalet-oss/kowabunga-api/client/zone"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/host"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/nfs"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/pool"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/region"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/template"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
 )
 
 const (

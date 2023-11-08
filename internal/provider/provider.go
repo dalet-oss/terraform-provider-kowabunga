@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/dalet-oss/kowabunga-api/client"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client"
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"

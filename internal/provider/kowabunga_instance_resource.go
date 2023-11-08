@@ -5,9 +5,9 @@ import (
 	"golang.org/x/exp/maps"
 	"sort"
 
-	"github.com/dalet-oss/kowabunga-api/client/instance"
-	"github.com/dalet-oss/kowabunga-api/client/project"
-	"github.com/dalet-oss/kowabunga-api/models"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/instance"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
