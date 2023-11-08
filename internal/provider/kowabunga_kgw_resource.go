@@ -52,10 +52,9 @@ func (r *KgwResource) Metadata(ctx context.Context, req resource.MetadataRequest
 	resourceMetadata(req, resp, KgwResourceName)
 }
 
-// TODO: check ro here
 func (r *KgwResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
-	resource.ImportStatePassthroughID(ctx, path.Root(KeyIP), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyPrivateIp), req, resp)
 }
 
 func (r *KgwResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -75,14 +74,14 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Required:            true,
 			},
 			KeyPublicIp: schema.ListAttribute{
-				MarkdownDescription: "The default Public IPs (read-only)",
+				MarkdownDescription: "The KGW default Public IP (read-only)",
 				Computed:            true,
 				PlanModifiers: []planmodifier.List{
 					listplanmodifier.UseStateForUnknown(),
 				},
 			},
 			KeyPrivateIp: schema.StringAttribute{
-				MarkdownDescription: "The Gateway Private IP (read-only)",
+				MarkdownDescription: "The KGW Private IP (read-only)",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
