@@ -6,9 +6,9 @@ import (
 	"github.com/3th1nk/cidr"
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/client/adapter"
-	"github.com/dalet-oss/kowabunga-api/client/subnet"
-	"github.com/dalet-oss/kowabunga-api/models"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/adapter"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"

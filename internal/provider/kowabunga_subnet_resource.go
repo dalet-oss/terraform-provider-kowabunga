@@ -6,9 +6,9 @@ import (
 	"golang.org/x/exp/maps"
 	"strings"
 
-	"github.com/dalet-oss/kowabunga-api/client/subnet"
-	"github.com/dalet-oss/kowabunga-api/client/vnet"
-	"github.com/dalet-oss/kowabunga-api/models"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"

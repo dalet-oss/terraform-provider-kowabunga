@@ -4,9 +4,9 @@ import (
 	"context"
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/client/pool"
-	"github.com/dalet-oss/kowabunga-api/client/template"
-	"github.com/dalet-oss/kowabunga-api/models"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/pool"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/template"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"

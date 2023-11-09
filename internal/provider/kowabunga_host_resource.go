@@ -4,9 +4,9 @@ import (
 	"context"
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/client/host"
-	"github.com/dalet-oss/kowabunga-api/client/zone"
-	"github.com/dalet-oss/kowabunga-api/models"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/host"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -37,18 +37,21 @@ type HostResource struct {
 }
 
 type HostResourceModel struct {
-	ID       types.String `tfsdk:"id"`
-	Name     types.String `tfsdk:"name"`
-	Desc     types.String `tfsdk:"desc"`
-	Zone     types.String `tfsdk:"zone"`
-	Protocol types.String `tfsdk:"protocol"`
-	Address  types.String `tfsdk:"address"`
-	Port     types.Int64  `tfsdk:"port"`
-	TlsKey   types.String `tfsdk:"key"`
-	TlsCert  types.String `tfsdk:"cert"`
-	TlsCA    types.String `tfsdk:"ca"`
-	Price    types.Int64  `tfsdk:"price"`
-	Currency types.String `tfsdk:"currency"`
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Desc             types.String `tfsdk:"desc"`
+	Zone             types.String `tfsdk:"zone"`
+	Protocol         types.String `tfsdk:"protocol"`
+	Address          types.String `tfsdk:"address"`
+	Port             types.Int64  `tfsdk:"port"`
+	TlsKey           types.String `tfsdk:"key"`
+	TlsCert          types.String `tfsdk:"cert"`
+	TlsCA            types.String `tfsdk:"ca"`
+	CpuPrice         types.Int64  `tfsdk:"cpu_price"`
+	MemoryPrice      types.Int64  `tfsdk:"memory_price"`
+	Currency         types.String `tfsdk:"currency"`
+	CpuOvercommit    types.Int64  `tfsdk:"cpu_overcommit"`
+	MemoryOvercommit types.Int64  `tfsdk:"memory_overcommit"`
 }
 
 func (r *HostResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -120,8 +123,14 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			KeyPrice: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host monthly price value (default: 0)",
+			KeyCpuPrice: schema.Int64Attribute{
+				MarkdownDescription: "libvirt host monthly CPU price value (default: 0)",
+				Computed:            true,
+				Optional:            true,
+				Default:             int64default.StaticInt64(0),
+			},
+			KeyMemoryPrice: schema.Int64Attribute{
+				MarkdownDescription: "libvirt host monthly Memory price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
 				Default:             int64default.StaticInt64(0),
@@ -132,6 +141,18 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 				Default:             stringdefault.StaticString("EUR"),
 			},
+			KeyCpuOvercommit: schema.Int64Attribute{
+				MarkdownDescription: "libvirt host CPU over-commit factor (default: 3)",
+				Computed:            true,
+				Optional:            true,
+				Default:             int64default.StaticInt64(3),
+			},
+			KeyMemoryOvercommit: schema.Int64Attribute{
+				MarkdownDescription: "libvirt host Memory over-commit factor (default: 2)",
+				Computed:            true,
+				Optional:            true,
+				Default:             int64default.StaticInt64(2),
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
@@ -139,17 +160,24 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 
 // converts host from Terraform model to Kowabunga API model
 func hostResourceToModel(d *HostResourceModel) models.Host {
-	cost := models.Cost{
-		Price:    d.Price.ValueInt64Pointer(),
+	cpu_cost := models.Cost{
+		Price:    d.CpuPrice.ValueInt64Pointer(),
+		Currency: d.Currency.ValueStringPointer(),
+	}
+	memory_cost := models.Cost{
+		Price:    d.MemoryPrice.ValueInt64Pointer(),
 		Currency: d.Currency.ValueStringPointer(),
 	}
 	hc := models.Host{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Protocol:    d.Protocol.ValueStringPointer(),
-		Address:     d.Address.ValueStringPointer(),
-		Port:        d.Port.ValueInt64(),
-		Cost:        &cost,
+		Name:                  d.Name.ValueStringPointer(),
+		Description:           d.Desc.ValueString(),
+		Protocol:              d.Protocol.ValueStringPointer(),
+		Address:               d.Address.ValueStringPointer(),
+		Port:                  d.Port.ValueInt64(),
+		CPUCost:               &cpu_cost,
+		MemoryCost:            &memory_cost,
+		OvercommitCPURatio:    d.CpuOvercommit.ValueInt64Pointer(),
+		OvercommitMemoryRatio: d.MemoryOvercommit.ValueInt64Pointer(),
 	}
 
 	if *hc.Protocol == models.HostProtocolTLS {
@@ -175,15 +203,20 @@ func hostModelToResource(r *models.Host, d *HostResourceModel) {
 	d.Protocol = types.StringPointerValue(r.Protocol)
 	d.Address = types.StringPointerValue(r.Address)
 	d.Port = types.Int64Value(r.Port)
-	if r.Cost != nil {
-		d.Price = types.Int64PointerValue(r.Cost.Price)
-		d.Currency = types.StringPointerValue(r.Cost.Currency)
+	if r.CPUCost != nil {
+		d.CpuPrice = types.Int64PointerValue(r.CPUCost.Price)
+		d.Currency = types.StringPointerValue(r.CPUCost.Currency)
+	}
+	if r.MemoryCost != nil {
+		d.MemoryPrice = types.Int64PointerValue(r.MemoryCost.Price)
 	}
 	if r.TLS != nil {
 		d.TlsKey = types.StringPointerValue(r.TLS.Key)
 		d.TlsCert = types.StringPointerValue(r.TLS.Cert)
 		d.TlsCA = types.StringPointerValue(r.TLS.Ca)
 	}
+	d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCPURatio)
+	d.MemoryOvercommit = types.Int64PointerValue(r.OvercommitMemoryRatio)
 }
 
 func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
