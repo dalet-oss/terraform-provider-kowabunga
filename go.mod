@@ -14,6 +14,8 @@ require (
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 )
 
+replace github.com/dalet-oss/kowabunga-api => ../../../Workspace/kowabunga/kowabunga-api
+
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect

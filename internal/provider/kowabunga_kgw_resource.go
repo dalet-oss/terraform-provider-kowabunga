@@ -3,8 +3,10 @@ package provider
 import (
 	"context"
 
-	"github.com/dalet-oss/kowabunga-api/client/project"
-	"github.com/dalet-oss/kowabunga-api/models"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kgw"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
+	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -44,8 +46,8 @@ type KgwResourceModel struct {
 
 type KgwNat struct {
 	private_ip string
-	public_ip  int16
-	ports      []int16
+	public_ip  string
+	ports      []uint16
 }
 
 func (r *KgwResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -98,12 +100,23 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 
 // converts kgw from Terraform model to Kowabunga API model
 func kgwResourceToModel(d *KgwResourceModel) models.KGW {
+	nats := []KgwNat{}
+	d.Nats.ElementsAs(context.TODO(), &nats, false)
+	natsModel := []*models.KGWNat{}
 
+	for _, v := range nats {
+		nat := models.KGWNat{
+			PrivateIP: v.private_ip,
+			PublicIP:  v.public_ip,
+			Ports:     v.ports,
+		}
+		natsModel = append(natsModel, &nat)
+	}
 	return models.KGW{
 		Description: d.Desc.ValueString(),
-		PublicIp:    d.PublicIp,
-		PrivateIp:   d.PrivateIp.ValueString(),
-		Nats:        d.Nats,
+		PublicIP:    d.PublicIp.ValueString(),
+		PrivateIP:   d.PrivateIp.ValueString(),
+		Nats:        natsModel,
 	}
 }
 
@@ -113,9 +126,30 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 		return
 	}
 	d.Desc = types.StringValue(r.Description)
-	d.PublicIp = r.PublicIp
-	d.PrivateIp = types.String(r.PrivateIp)
-	d.Nats = r.Nats
+	d.PublicIp = types.StringValue(r.PublicIP)
+	d.PrivateIp = types.StringValue(r.PrivateIP)
+
+	nats := []attr.Value{}
+	natType := map[string]attr.Type{
+		"private_key": types.StringType,
+		"public_key":  types.StringType,
+		"port":        types.ListType{},
+	}
+	for _, nat := range r.Nats {
+		ports := []attr.Value{}
+		for _, port := range nat.Ports {
+			ports = append(ports, types.Int64Value(int64(port)))
+		}
+		portValues, _ := types.ListValue(types.Int64Type, ports)
+		a := map[string]attr.Value{
+			"private_ip": types.StringValue(nat.PrivateIP),
+			"public_ip":  types.StringValue(nat.PublicIP),
+			"ports":      portValues,
+		}
+		object, _ := types.ObjectValue(natType, a)
+		nats = append(nats, object)
+	}
+	d.Nats, _ = types.ListValue(types.ObjectType{}, nats)
 }
 
 func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -170,8 +204,8 @@ func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kgw.NewGetKGWParams().WithKgwID(data.ID.ValueString())
-	obj, err := r.Data.K.Kgw.GetKGW(params, nil)
+	params := kgw.NewGetKgwParams().WithKgwID(data.ID.ValueString())
+	obj, err := r.Data.K.Kgw.GetKgw(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
