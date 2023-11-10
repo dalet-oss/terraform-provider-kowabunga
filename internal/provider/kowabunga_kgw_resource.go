@@ -131,9 +131,9 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 
 	nats := []attr.Value{}
 	natType := map[string]attr.Type{
-		"private_key": types.StringType,
-		"public_key":  types.StringType,
-		"port":        types.ListType{},
+		"private_ip": types.StringType,
+		"public_ip":  types.StringType,
+		"port":       types.ListType{},
 	}
 	for _, nat := range r.Nats {
 		ports := []attr.Value{}
