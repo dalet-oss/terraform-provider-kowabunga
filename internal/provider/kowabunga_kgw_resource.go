@@ -6,14 +6,15 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kgw"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/exp/maps"
 )
@@ -75,11 +76,11 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
 			},
-			KeyPublicIp: schema.ListAttribute{
+			KeyPublicIp: schema.StringAttribute{
 				MarkdownDescription: "The KGW default Public IP (read-only)",
 				Computed:            true,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			KeyPrivateIp: schema.StringAttribute{
@@ -91,6 +92,7 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			},
 			KeyNats: schema.ListAttribute{
 				MarkdownDescription: "NATs Configuration",
+				ElementType:         basetypes.MapType{},
 				Optional:            true,
 			},
 		},

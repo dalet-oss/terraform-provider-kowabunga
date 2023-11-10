@@ -26,11 +26,14 @@ Manages a host resource
 
 - `ca` (String) libvirt host API TLS CA (default: none)
 - `cert` (String) libvirt host API TLS certificate (default: none)
+- `cpu_overcommit` (Number) libvirt host CPU over-commit factor (default: 3)
+- `cpu_price` (Number) libvirt host monthly CPU price value (default: 0)
 - `currency` (String) libvirt host monthly price currency (default: **EUR**)
 - `desc` (String) Resource extended description
 - `key` (String, Sensitive) libvirt host API TLS private key (default: none)
+- `memory_overcommit` (Number) libvirt host Memory over-commit factor (default: 2)
+- `memory_price` (Number) libvirt host monthly Memory price value (default: 0)
 - `port` (Number) libvirt host API port number (defaults to 0, i.e. auto-detected)
-- `price` (Number) libvirt host monthly price value (default: 0)
 
 ### Read-Only
 
