@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kgw"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
@@ -20,7 +21,11 @@ import (
 )
 
 const (
-	KgwResourceName = "kgw"
+	KgwResourceName  = "kgw"
+	kgwCreateTimeout = 2 * time.Minute
+	kgwDeleteTimeout = 2 * time.Minute
+	kgwReadTimeout   = 1 * time.Minute
+	kgwUpdateTimeout = 2 * time.Minute
 )
 
 var _ resource.Resource = &KgwResource{}
@@ -39,11 +44,12 @@ type KgwResourceModel struct {
 	Desc    types.String `tfsdk:"desc"`
 	Project types.String `tfsdk:"project"`
 
-	Name      types.String `tfsdk:"name"`
-	Zone      types.String `tfsdk:"zone"`
-	PublicIp  types.String `tfsdk:"public_ip"`
-	PrivateIp types.String `tfsdk:"private_ip"`
-	Nats      types.List   `tfsdk:"nats"`
+	Name      types.String   `tfsdk:"name"`
+	Zone      types.String   `tfsdk:"zone"`
+	PublicIp  types.String   `tfsdk:"public_ip"`
+	PrivateIp types.String   `tfsdk:"private_ip"`
+	Nats      types.List     `tfsdk:"nats"`
+	Timeouts  timeouts.Value `tfsdk:"timeouts"`
 }
 
 type KgwNat struct {
@@ -103,10 +109,15 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				ElementType:         types.ObjectType{AttrTypes: natType},
 				Optional:            true,
 			},
-		},
-		Blocks: map[string]schema.Block{
-			"timeouts": timeouts.Block(ctx, timeouts.Opts{
-				Create: true,
+			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+				Create:            true,
+				Read:              true,
+				Update:            true,
+				Delete:            true,
+				CreateDescription: "3m",
+				ReadDescription:   "3m",
+				UpdateDescription: "3m",
+				DeleteDescription: "3m",
 			}),
 		},
 	}
@@ -164,7 +175,7 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 		object, _ := types.ObjectValue(natType, a)
 		nats = append(nats, object)
 	}
-	d.Nats, _ = types.ListValue(types.ObjectType{}, nats)
+	d.Nats, _ = types.ListValue(types.ObjectType{AttrTypes: natType}, nats)
 }
 
 func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -174,6 +185,14 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	createTimeout, diags := data.Timeouts.Create(ctx, kgwCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
@@ -196,7 +215,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	cfg := kgwResourceToModel(data)
 	params := project.NewCreateProjectZoneKgwParams().
 		WithProjectID(projectId).WithZoneID(zoneId).
-		WithBody(&cfg)
+		WithBody(&cfg).WithTimeout(kgwCreateTimeout)
 
 	obj, err := r.Data.K.Project.CreateProjectZoneKgw(params, nil)
 	if err != nil {
@@ -216,11 +235,19 @@ func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	readTimeout, diags := data.Timeouts.Read(ctx, kgwReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, readTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kgw.NewGetKgwParams().WithKgwID(data.ID.ValueString())
+	params := kgw.NewGetKgwParams().WithKgwID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Kgw.GetKgw(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -238,11 +265,20 @@ func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	updateTimeout, diags := data.Timeouts.Update(ctx, kgwUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := kgwResourceToModel(data)
-	params := kgw.NewUpdateKGWParams().WithKgwID(data.ID.ValueString()).WithBody(&cfg)
+	params := kgw.NewUpdateKGWParams().WithKgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Kgw.UpdateKGW(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
