@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/exp/maps"
 )
@@ -35,13 +34,14 @@ type KgwResource struct {
 }
 
 type KgwResourceModel struct {
-	ID        types.String `tfsdk:"id"`
-	Desc      types.String `tfsdk:"desc"`
-	Project   types.String `tfsdk:"project"`
+	ID      types.String `tfsdk:"id"`
+	Desc    types.String `tfsdk:"desc"`
+	Project types.String `tfsdk:"project"`
+
+	Name      types.String `tfsdk:"name"`
 	Zone      types.String `tfsdk:"zone"`
-	Pool      types.String `tfsdk:"pool"`
-	PublicIp  types.String `tfsdk:"publicips"`
-	PrivateIp types.String `tfsdk:"private"`
+	PublicIp  types.String `tfsdk:"public_ip"`
+	PrivateIp types.String `tfsdk:"private_ip"`
 	Nats      types.List   `tfsdk:"nats"`
 }
 
@@ -65,6 +65,13 @@ func (r *KgwResource) Configure(ctx context.Context, req resource.ConfigureReque
 }
 
 func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+
+	natType := map[string]attr.Type{
+		"private_ip": types.StringType,
+		"public_ip":  types.StringType,
+		"port":       types.ListType{ElemType: types.Int64Type},
+	}
+
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a KGW resource. **KGW** (stands for *Kowabunga Gateway*) is a resource that provides Nats & internet access capabilities for a given project.",
 		Attributes: map[string]schema.Attribute{
@@ -92,7 +99,7 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			},
 			KeyNats: schema.ListAttribute{
 				MarkdownDescription: "NATs Configuration",
-				ElementType:         basetypes.MapType{},
+				ElementType:         types.ObjectType{AttrTypes: natType},
 				Optional:            true,
 			},
 		},
@@ -156,10 +163,14 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 
 func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data *KgwResourceModel
+
+	tflog.Error(ctx, "COUCOU 3")
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Error(ctx, "COUCOU 4")
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
@@ -179,7 +190,9 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	// create a new KGW
+	tflog.Error(ctx, "COUCOU 1")
 	cfg := kgwResourceToModel(data)
+	tflog.Error(ctx, "COUCOU 2")
 	params := project.NewCreateProjectZoneKgwParams().
 		WithProjectID(projectId).WithZoneID(zoneId).
 		WithBody(&cfg)
