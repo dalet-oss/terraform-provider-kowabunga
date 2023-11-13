@@ -7,6 +7,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -103,6 +104,11 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Optional:            true,
 			},
 		},
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
+			}),
+		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes())
 }
@@ -164,13 +170,10 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data *KgwResourceModel
 
-	tflog.Error(ctx, "COUCOU 3")
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	tflog.Error(ctx, "COUCOU 4")
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
@@ -190,9 +193,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	// create a new KGW
-	tflog.Error(ctx, "COUCOU 1")
 	cfg := kgwResourceToModel(data)
-	tflog.Error(ctx, "COUCOU 2")
 	params := project.NewCreateProjectZoneKgwParams().
 		WithProjectID(projectId).WithZoneID(zoneId).
 		WithBody(&cfg)
