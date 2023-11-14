@@ -159,7 +159,7 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 	natType := map[string]attr.Type{
 		"private_ip": types.StringType,
 		"public_ip":  types.StringType,
-		"port":       types.ListType{},
+		"port":       types.ListType{ElemType: types.Int64Type},
 	}
 	for _, nat := range r.Nats {
 		ports := []attr.Value{}
@@ -175,7 +175,12 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 		object, _ := types.ObjectValue(natType, a)
 		nats = append(nats, object)
 	}
-	d.Nats, _ = types.ListValue(types.ObjectType{AttrTypes: natType}, nats)
+
+	if len(r.Nats) == 0 {
+		d.Nats = types.ListNull(types.ObjectType{AttrTypes: natType})
+	} else {
+		d.Nats, _ = types.ListValue(types.ObjectType{AttrTypes: natType}, nats)
+	}
 }
 
 func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -225,6 +230,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	data.ID = types.StringValue(obj.Payload.ID)
 	kgwModelToResource(obj.Payload, data) // read back resulting object
+
 	tflog.Trace(ctx, "created KGW resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
