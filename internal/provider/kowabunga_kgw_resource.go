@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kgw"
@@ -16,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/exp/maps"
 )
@@ -52,10 +55,10 @@ type KgwResourceModel struct {
 	Timeouts  timeouts.Value `tfsdk:"timeouts"`
 }
 
-type KgwNat struct {
-	private_ip string
-	public_ip  string
-	ports      []uint16
+type KgwNatRule struct {
+	PublicIp  types.String `tfsdk:"public_ip"`
+	PrivateIp types.String `tfsdk:"private_ip"`
+	Ports     types.String `tfsdk:"ports"`
 }
 
 func (r *KgwResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -72,13 +75,6 @@ func (r *KgwResource) Configure(ctx context.Context, req resource.ConfigureReque
 }
 
 func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
-
-	natType := map[string]attr.Type{
-		"private_ip": types.StringType,
-		"public_ip":  types.StringType,
-		"port":       types.ListType{ElemType: types.Int64Type},
-	}
-
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a KGW resource. **KGW** (stands for *Kowabunga Gateway*) is a resource that provides Nats & internet access capabilities for a given project.",
 		Attributes: map[string]schema.Attribute{
@@ -104,10 +100,29 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			KeyNats: schema.ListAttribute{
+			KeyNats: schema.ListNestedAttribute{
 				MarkdownDescription: "NATs Configuration",
-				ElementType:         types.ObjectType{AttrTypes: natType},
 				Optional:            true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"private_ip": schema.StringAttribute{
+							MarkdownDescription: "Private IP where the NAT will be forwarded",
+							Required:            true,
+						},
+						"public_ip": schema.StringAttribute{
+							MarkdownDescription: "Exposed public IP used to for forward traffic. Leave empty to use the default GW interface",
+							Optional:            true,
+							Computed:            true,
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
+						},
+						"ports": schema.StringAttribute{
+							MarkdownDescription: "Ports that will be forwarded. 0 Means all. Ranges Accepted",
+							Required:            true,
+						},
+					},
+				},
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create:            true,
@@ -125,18 +140,35 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 }
 
 // converts kgw from Terraform model to Kowabunga API model
-func kgwResourceToModel(d *KgwResourceModel) models.KGW {
-	nats := []KgwNat{}
-	d.Nats.ElementsAs(context.TODO(), &nats, false)
+func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) models.KGW {
 	natsModel := []*models.KGWNat{}
 
-	for _, v := range nats {
-		nat := models.KGWNat{
-			PrivateIP: v.private_ip,
-			PublicIP:  v.public_ip,
-			Ports:     v.ports,
+	nats := make([]types.Object, 0, len(d.Nats.Elements()))
+
+	diags := d.Nats.ElementsAs(*ctx, &nats, false)
+
+	if diags.HasError() {
+		for _, err := range diags.Errors() {
+			tflog.Debug(*ctx, err.Detail())
 		}
-		natsModel = append(natsModel, &nat)
+	}
+
+	tmp := KgwNatRule{}
+	for _, nat := range nats {
+		diags := nat.As(*ctx, &tmp, basetypes.ObjectAsOptions{
+			UnhandledNullAsEmpty:    true,
+			UnhandledUnknownAsEmpty: true,
+		})
+		if diags.HasError() {
+			for _, err := range diags.Errors() {
+				tflog.Debug(*ctx, err.Detail())
+			}
+		}
+		natsModel = append(natsModel, &models.KGWNat{
+			PrivateIP: tmp.PrivateIp.ValueString(),
+			PublicIP:  tmp.PublicIp.ValueString(),
+			Ports:     tmp.Ports.ValueString(),
+		})
 	}
 	return models.KGW{
 		Description: d.Desc.ValueString(),
@@ -147,7 +179,7 @@ func kgwResourceToModel(d *KgwResourceModel) models.KGW {
 }
 
 // converts kgw from Kowabunga API model to Terraform model
-func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
+func kgwModelToResource(ctx *context.Context, r *models.KGW, d *KgwResourceModel) {
 	if r == nil {
 		return
 	}
@@ -159,18 +191,13 @@ func kgwModelToResource(r *models.KGW, d *KgwResourceModel) {
 	natType := map[string]attr.Type{
 		"private_ip": types.StringType,
 		"public_ip":  types.StringType,
-		"port":       types.ListType{ElemType: types.Int64Type},
+		"ports":      types.StringType,
 	}
 	for _, nat := range r.Nats {
-		ports := []attr.Value{}
-		for _, port := range nat.Ports {
-			ports = append(ports, types.Int64Value(int64(port)))
-		}
-		portValues, _ := types.ListValue(types.Int64Type, ports)
 		a := map[string]attr.Value{
 			"private_ip": types.StringValue(nat.PrivateIP),
 			"public_ip":  types.StringValue(nat.PublicIP),
-			"ports":      portValues,
+			"ports":      types.StringValue(nat.Ports),
 		}
 		object, _ := types.ObjectValue(natType, a)
 		nats = append(nats, object)
@@ -216,8 +243,23 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	cfg := kgwResourceToModel(&ctx, data)
+
+	// Ugly port validation with a triple loop
+	for _, v := range cfg.Nats {
+		portList := strings.Split(v.Ports, ",")
+		for _, port := range portList {
+			for _, portcleaned := range strings.Split(port, "-") {
+				_, err := strconv.ParseUint(portcleaned, 10, 16)
+				if err != nil {
+					tflog.Error(ctx, "Port outside range (0-65535) for port  : "+portcleaned)
+					return
+				}
+			}
+		}
+	}
+
 	// create a new KGW
-	cfg := kgwResourceToModel(data)
 	params := project.NewCreateProjectZoneKgwParams().
 		WithProjectID(projectId).WithZoneID(zoneId).
 		WithBody(&cfg).WithTimeout(kgwCreateTimeout)
@@ -229,8 +271,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	data.ID = types.StringValue(obj.Payload.ID)
-	kgwModelToResource(obj.Payload, data) // read back resulting object
-
+	kgwModelToResource(&ctx, obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created KGW resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -260,7 +301,7 @@ func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	kgwModelToResource(obj.Payload, data)
+	kgwModelToResource(&ctx, obj.Payload, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -283,7 +324,7 @@ func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := kgwResourceToModel(data)
+	cfg := kgwResourceToModel(&ctx, data)
 	params := kgw.NewUpdateKGWParams().WithKgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Kgw.UpdateKGW(params, nil)
 	if err != nil {
@@ -301,10 +342,16 @@ func (r *KgwResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
+	deleteTimeout, diags := data.Timeouts.Delete(ctx, kgwDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kgw.NewDeleteKGWParams().WithKgwID(data.ID.ValueString())
+	params := kgw.NewDeleteKGWParams().WithKgwID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Kgw.DeleteKGW(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
