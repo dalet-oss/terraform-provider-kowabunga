@@ -25,7 +25,7 @@ import (
 
 const (
 	KgwResourceName  = "kgw"
-	kgwCreateTimeout = 2 * time.Minute
+	kgwCreateTimeout = 3 * time.Minute
 	kgwDeleteTimeout = 2 * time.Minute
 	kgwReadTimeout   = 1 * time.Minute
 	kgwUpdateTimeout = 2 * time.Minute
@@ -165,9 +165,9 @@ func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) models.KGW {
 			}
 		}
 		natsModel = append(natsModel, &models.KGWNat{
-			PrivateIP: tmp.PrivateIp.ValueString(),
+			PrivateIP: tmp.PrivateIp.ValueStringPointer(),
 			PublicIP:  tmp.PublicIp.ValueString(),
-			Ports:     tmp.Ports.ValueString(),
+			Ports:     tmp.Ports.ValueStringPointer(),
 		})
 	}
 	return models.KGW{
@@ -195,9 +195,9 @@ func kgwModelToResource(ctx *context.Context, r *models.KGW, d *KgwResourceModel
 	}
 	for _, nat := range r.Nats {
 		a := map[string]attr.Value{
-			"private_ip": types.StringValue(nat.PrivateIP),
+			"private_ip": types.StringPointerValue(nat.PrivateIP),
 			"public_ip":  types.StringValue(nat.PublicIP),
-			"ports":      types.StringValue(nat.Ports),
+			"ports":      types.StringPointerValue(nat.Ports),
 		}
 		object, _ := types.ObjectValue(natType, a)
 		nats = append(nats, object)
@@ -247,7 +247,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// Ugly port validation with a triple loop
 	for _, v := range cfg.Nats {
-		portList := strings.Split(v.Ports, ",")
+		portList := strings.Split(*v.Ports, ",")
 		for _, port := range portList {
 			for _, portcleaned := range strings.Split(port, "-") {
 				_, err := strconv.ParseUint(portcleaned, 10, 16)
@@ -264,11 +264,30 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		WithProjectID(projectId).WithZoneID(zoneId).
 		WithBody(&cfg).WithTimeout(kgwCreateTimeout)
 
+	tflog.Error(ctx, "\n\n\nBEFORE CREATE \n\n\n")
 	obj, err := r.Data.K.Project.CreateProjectZoneKgw(params, nil)
+
+	if obj != nil {
+		tflog.Error(ctx, "\n\nOBJECT IS NOT NIL ??\n\n")
+		tflog.Error(ctx, "\n\nOBJECT IS NOT NIL ??\n\n", map[string]interface{}{
+			"Code":        obj.Code(),
+			"ServerError": obj.IsServerError(),
+		})
+		tflog.Error(ctx, "\n\nOBJECT IS NOT NIL ??\n\n"+obj.String())
+		tflog.Error(ctx, "\n\nSERVER ERROR ??\n\n"+obj.GetPayload().ID+"\n\n")
+	}
+	if obj == nil {
+		tflog.Error(ctx, "\n\nOBJECT IS NIL !!!!!!!!!!!!!!!!!! ??\n\n")
+	}
 	if err != nil {
+		tflog.Error(ctx, "\n\n\nBON SOUCI LAA IL SEMBLERAIT\n\n\n")
+		tflog.Error(ctx, "\n\n\n\n\n"+obj.Error())
+		tflog.Error(ctx, "\n\n\n\n\n"+obj.String()+"\n\n\n\n\n")
 		errorCreateGeneric(resp, err)
 		return
 	}
+
+	tflog.Error(ctx, "\n\n\nON SAIT JAMAIST\n\n\n")
 
 	data.ID = types.StringValue(obj.Payload.ID)
 	kgwModelToResource(&ctx, obj.Payload, data) // read back resulting object
