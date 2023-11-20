@@ -264,25 +264,9 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		WithProjectID(projectId).WithZoneID(zoneId).
 		WithBody(&cfg).WithTimeout(kgwCreateTimeout)
 
-	tflog.Error(ctx, "\n\n\nBEFORE CREATE \n\n\n")
 	obj, err := r.Data.K.Project.CreateProjectZoneKgw(params, nil)
 
-	if obj != nil {
-		tflog.Error(ctx, "\n\nOBJECT IS NOT NIL ??\n\n")
-		tflog.Error(ctx, "\n\nOBJECT IS NOT NIL ??\n\n", map[string]interface{}{
-			"Code":        obj.Code(),
-			"ServerError": obj.IsServerError(),
-		})
-		tflog.Error(ctx, "\n\nOBJECT IS NOT NIL ??\n\n"+obj.String())
-		tflog.Error(ctx, "\n\nSERVER ERROR ??\n\n"+obj.GetPayload().ID+"\n\n")
-	}
-	if obj == nil {
-		tflog.Error(ctx, "\n\nOBJECT IS NIL !!!!!!!!!!!!!!!!!! ??\n\n")
-	}
 	if err != nil {
-		tflog.Error(ctx, "\n\n\nBON SOUCI LAA IL SEMBLERAIT\n\n\n")
-		tflog.Error(ctx, "\n\n\n\n\n"+obj.Error())
-		tflog.Error(ctx, "\n\n\n\n\n"+obj.String()+"\n\n\n\n\n")
 		errorCreateGeneric(resp, err)
 		return
 	}
