@@ -262,7 +262,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// create a new KGW
 	params := project.NewCreateProjectZoneKgwParams().
 		WithProjectID(projectId).WithZoneID(zoneId).
-		WithBody(&cfg).WithTimeout(kgwCreateTimeout)
+		WithBody(&cfg).WithTimeout(createTimeout)
 
 	obj, err := r.Data.K.Project.CreateProjectZoneKgw(params, nil)
 
