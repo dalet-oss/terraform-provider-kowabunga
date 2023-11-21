@@ -2,8 +2,6 @@ package provider
 
 import (
 	"context"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kgw"
@@ -17,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -120,6 +119,9 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 						"ports": schema.StringAttribute{
 							MarkdownDescription: "Ports that will be forwarded. 0 Means all. Ranges Accepted",
 							Required:            true,
+							Validators: []validator.String{
+								&stringPortValidator{},
+							},
 						},
 					},
 				},
@@ -136,7 +138,7 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			}),
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributesWithoutName())
 }
 
 // converts kgw from Terraform model to Kowabunga API model
@@ -153,21 +155,21 @@ func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) models.KGW {
 		}
 	}
 
-	tmp := KgwNatRule{}
+	natRule := KgwNatRule{}
 	for _, nat := range nats {
-		diags := nat.As(*ctx, &tmp, basetypes.ObjectAsOptions{
+		diags := nat.As(*ctx, &natRule, basetypes.ObjectAsOptions{
 			UnhandledNullAsEmpty:    true,
 			UnhandledUnknownAsEmpty: true,
 		})
 		if diags.HasError() {
 			for _, err := range diags.Errors() {
-				tflog.Debug(*ctx, err.Detail())
+				tflog.Error(*ctx, err.Detail())
 			}
 		}
 		natsModel = append(natsModel, &models.KGWNat{
-			PrivateIP: tmp.PrivateIp.ValueStringPointer(),
-			PublicIP:  tmp.PublicIp.ValueString(),
-			Ports:     tmp.Ports.ValueStringPointer(),
+			PrivateIP: natRule.PrivateIp.ValueStringPointer(),
+			PublicIP:  natRule.PublicIp.ValueString(),
+			Ports:     natRule.Ports.ValueStringPointer(),
 		})
 	}
 	return models.KGW{
@@ -244,20 +246,6 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	cfg := kgwResourceToModel(&ctx, data)
-
-	// Ugly port validation with a triple loop
-	for _, v := range cfg.Nats {
-		portList := strings.Split(*v.Ports, ",")
-		for _, port := range portList {
-			for _, portcleaned := range strings.Split(port, "-") {
-				_, err := strconv.ParseUint(portcleaned, 10, 16)
-				if err != nil {
-					tflog.Error(ctx, "Port outside range (0-65535) for port  : "+portcleaned)
-					return
-				}
-			}
-		}
-	}
 
 	// create a new KGW
 	params := project.NewCreateProjectZoneKgwParams().

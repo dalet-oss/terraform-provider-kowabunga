@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -152,6 +153,18 @@ func errorDeleteGeneric(resp *resource.DeleteResponse, err error) {
 }
 
 func resourceAttributes() map[string]schema.Attribute {
+	defaultAttr := map[string]schema.Attribute{
+		KeyName: schema.StringAttribute{
+			MarkdownDescription: ResourceNameDescription,
+			Required:            true,
+		},
+	}
+	maps.Copy(defaultAttr, resourceAttributesWithoutName())
+
+	return defaultAttr
+}
+
+func resourceAttributesWithoutName() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		KeyID: schema.StringAttribute{
 			Computed:            true,
@@ -159,10 +172,6 @@ func resourceAttributes() map[string]schema.Attribute {
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
 			},
-		},
-		KeyName: schema.StringAttribute{
-			MarkdownDescription: ResourceNameDescription,
-			Required:            true,
 		},
 		KeyDesc: schema.StringAttribute{
 			MarkdownDescription: ResourceDescDescription,
