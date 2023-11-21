@@ -46,7 +46,6 @@ type KgwResourceModel struct {
 	Desc    types.String `tfsdk:"desc"`
 	Project types.String `tfsdk:"project"`
 
-	Name      types.String   `tfsdk:"name"`
 	Zone      types.String   `tfsdk:"zone"`
 	PublicIp  types.String   `tfsdk:"public_ip"`
 	PrivateIp types.String   `tfsdk:"private_ip"`
@@ -247,6 +246,33 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	cfg := kgwResourceToModel(&ctx, data)
 
+	// Ugly port validation
+	// for _, v := range cfg.Nats {
+	// 	portList := strings.Split(*v.Ports, ",") // for each options
+	// 	for _, port := range portList {
+	// 		portRanges := strings.Split(port, "-") //returns at least 1 entry
+	// 		if len(portRanges) > 2 {
+	// 			tflog.Error(ctx, "Too many entries in range : "+port)
+	// 			return
+	// 		}
+	// 		_, err := strconv.ParseUint(portRanges[0], 10, 16)
+	// 		if err != nil {
+	// 			tflog.Error(ctx, "Port outside range (0-65535) for port  : "+portRanges[1])
+	// 			return
+	// 		}
+	// 		if len(portRanges) == 2 && err == nil {
+	// 			_, err = strconv.ParseUint(portRanges[1], 10, 16)
+	// 			if err != nil {
+	// 				tflog.Error(ctx, "Port outside range (0-65535) for port  : "+portRanges[1])
+	// 				return
+	// 			}
+	// 			if portRanges[0] > portRanges[1] {
+	// 				tflog.Error(ctx, "Invalid Port Range. Left hand side is superior than righ hand side"+port)
+	// 				return
+	// 			}
+	// 		}
+	// 	}
+	// }
 	// create a new KGW
 	params := project.NewCreateProjectZoneKgwParams().
 		WithProjectID(projectId).WithZoneID(zoneId).
