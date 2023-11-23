@@ -2,13 +2,11 @@ package provider
 
 import (
 	"context"
-	"time"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kgw"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
-	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,11 +21,7 @@ import (
 )
 
 const (
-	KgwResourceName  = "kgw"
-	kgwCreateTimeout = 3 * time.Minute
-	kgwDeleteTimeout = 2 * time.Minute
-	kgwReadTimeout   = 1 * time.Minute
-	kgwUpdateTimeout = 2 * time.Minute
+	KgwResourceName = "kgw"
 )
 
 var _ resource.Resource = &KgwResource{}
@@ -42,15 +36,16 @@ type KgwResource struct {
 }
 
 type KgwResourceModel struct {
-	ID      types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Desc    types.String `tfsdk:"desc"`
 	Project types.String `tfsdk:"project"`
 
-	Zone      types.String   `tfsdk:"zone"`
-	PublicIp  types.String   `tfsdk:"public_ip"`
-	PrivateIp types.String   `tfsdk:"private_ip"`
-	Nats      types.List     `tfsdk:"nats"`
-	Timeouts  timeouts.Value `tfsdk:"timeouts"`
+	Zone      types.String `tfsdk:"zone"`
+	PublicIp  types.String `tfsdk:"public_ip"`
+	PrivateIp types.String `tfsdk:"private_ip"`
+	Nats      types.List   `tfsdk:"nats"`
 }
 
 type KgwNatRule struct {
@@ -103,20 +98,20 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"private_ip": schema.StringAttribute{
+						KeyPrivateIp: schema.StringAttribute{
 							MarkdownDescription: "Private IP where the NAT will be forwarded",
 							Required:            true,
 						},
-						"public_ip": schema.StringAttribute{
-							MarkdownDescription: "Exposed public IP used to for forward traffic. Leave empty to use the default GW interface",
+						KeyPublicIp: schema.StringAttribute{
+							MarkdownDescription: "Exposed public IP used to forward traffic. Leave empty to use the default GW interface",
 							Optional:            true,
 							Computed:            true,
 							PlanModifiers: []planmodifier.String{
 								stringplanmodifier.UseStateForUnknown(),
 							},
 						},
-						"ports": schema.StringAttribute{
-							MarkdownDescription: "Ports that will be forwarded. 0 Means all. Ranges Accepted",
+						KeyPorts: schema.StringAttribute{
+							MarkdownDescription: "Ports that will be forwarded. 0 Means all. For a list of ports, separate it with a comma, Ranges Accepted. e.g 8001,9006-9010",
 							Required:            true,
 							Validators: []validator.String{
 								&stringPortValidator{},
@@ -125,19 +120,9 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 					},
 				},
 			},
-			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
-				Create:            true,
-				Read:              true,
-				Update:            true,
-				Delete:            true,
-				CreateDescription: "3m",
-				ReadDescription:   "3m",
-				UpdateDescription: "3m",
-				DeleteDescription: "3m",
-			}),
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributesWithoutName())
+	maps.Copy(resp.Schema.Attributes, resourceAttributesWithoutName(&ctx))
 }
 
 // converts kgw from Terraform model to Kowabunga API model
@@ -190,15 +175,15 @@ func kgwModelToResource(ctx *context.Context, r *models.KGW, d *KgwResourceModel
 
 	nats := []attr.Value{}
 	natType := map[string]attr.Type{
-		"private_ip": types.StringType,
-		"public_ip":  types.StringType,
-		"ports":      types.StringType,
+		KeyPrivateIp: types.StringType,
+		KeyPublicIp:  types.StringType,
+		KeyPorts:     types.StringType,
 	}
 	for _, nat := range r.Nats {
 		a := map[string]attr.Value{
-			"private_ip": types.StringPointerValue(nat.PrivateIP),
-			"public_ip":  types.StringValue(nat.PublicIP),
-			"ports":      types.StringPointerValue(nat.Ports),
+			KeyPrivateIp: types.StringPointerValue(nat.PrivateIP),
+			KeyPublicIp:  types.StringValue(nat.PublicIP),
+			KeyPorts:     types.StringPointerValue(nat.Ports),
 		}
 		object, _ := types.ObjectValue(natType, a)
 		nats = append(nats, object)
@@ -218,13 +203,8 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	createTimeout, diags := data.Timeouts.Create(ctx, kgwCreateTimeout)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
-	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -270,13 +250,8 @@ func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	readTimeout, diags := data.Timeouts.Read(ctx, kgwReadTimeout)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
-	ctx, cancel := context.WithTimeout(ctx, readTimeout)
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -300,13 +275,7 @@ func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	updateTimeout, diags := data.Timeouts.Update(ctx, kgwUpdateTimeout)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -330,11 +299,8 @@ func (r *KgwResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
-	deleteTimeout, diags := data.Timeouts.Delete(ctx, kgwDeleteTimeout)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()

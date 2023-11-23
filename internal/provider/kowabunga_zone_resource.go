@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/region"
@@ -30,7 +31,9 @@ type ZoneResource struct {
 }
 
 type ZoneResourceModel struct {
-	ID     types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name   types.String `tfsdk:"name"`
 	Desc   types.String `tfsdk:"desc"`
 	Region types.String `tfsdk:"region"`
@@ -58,7 +61,7 @@ func (r *ZoneResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts zone from Terraform model to Kowabunga API model
@@ -86,6 +89,9 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -98,7 +104,7 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// create a new zone
 	cfg := zoneResourceToModel(data)
-	params := region.NewCreateZoneParams().WithRegionID(regionId).WithBody(&cfg)
+	params := region.NewCreateZoneParams().WithRegionID(regionId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Region.CreateZone(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -118,10 +124,13 @@ func (r *ZoneResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := zone.NewGetZoneParams().WithZoneID(data.ID.ValueString())
+	params := zone.NewGetZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Zone.GetZone(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -138,12 +147,13 @@ func (r *ZoneResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := zoneResourceToModel(data)
-	params := zone.NewUpdateZoneParams().WithZoneID(data.ID.ValueString()).WithBody(&cfg)
+	params := zone.NewUpdateZoneParams().WithZoneID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Zone.UpdateZone(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -160,10 +170,13 @@ func (r *ZoneResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := zone.NewDeleteZoneParams().WithZoneID(data.ID.ValueString())
+	params := zone.NewDeleteZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Zone.DeleteZone(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

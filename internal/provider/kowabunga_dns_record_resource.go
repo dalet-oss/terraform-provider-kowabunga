@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
@@ -31,7 +32,9 @@ type DnsRecordResource struct {
 }
 
 type DnsRecordResourceModel struct {
-	ID        types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name      types.String `tfsdk:"name"`
 	Desc      types.String `tfsdk:"desc"`
 	Project   types.String `tfsdk:"project"`
@@ -65,7 +68,7 @@ func (r *DnsRecordResource) Schema(ctx context.Context, req resource.SchemaReque
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts record from Terraform model to Kowabunga API model
@@ -97,6 +100,9 @@ func (r *DnsRecordResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -109,7 +115,7 @@ func (r *DnsRecordResource) Create(ctx context.Context, req resource.CreateReque
 
 	// create a new record
 	cfg := recordResourceToModel(data)
-	params := project.NewCreateProjectDNSRecordParams().WithProjectID(projectId).WithBody(&cfg)
+	params := project.NewCreateProjectDNSRecordParams().WithProjectID(projectId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Project.CreateProjectDNSRecord(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -128,10 +134,13 @@ func (r *DnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := record.NewGetDNSRecordParams().WithRecordID(data.ID.ValueString())
+	params := record.NewGetDNSRecordParams().WithRecordID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Record.GetDNSRecord(params, nil)
 	if err != nil {
 		tflog.Trace(ctx, err.Error())
@@ -150,11 +159,14 @@ func (r *DnsRecordResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := recordResourceToModel(data)
-	params := record.NewUpdateDNSRecordParams().WithRecordID(data.ID.ValueString()).WithBody(&cfg)
+	params := record.NewUpdateDNSRecordParams().WithRecordID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Record.UpdateDNSRecord(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -170,11 +182,13 @@ func (r *DnsRecordResource) Delete(ctx context.Context, req resource.DeleteReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := record.NewDeleteDNSRecordParams().WithRecordID(data.ID.ValueString())
+	params := record.NewDeleteDNSRecordParams().WithRecordID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Record.DeleteDNSRecord(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
