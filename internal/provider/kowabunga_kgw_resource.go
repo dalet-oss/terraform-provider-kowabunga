@@ -61,6 +61,7 @@ func (r *KgwResource) Metadata(ctx context.Context, req resource.MetadataRequest
 func (r *KgwResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 	resource.ImportStatePassthroughID(ctx, path.Root(KeyPrivateIp), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyPublicIp), req, resp)
 }
 
 func (r *KgwResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
