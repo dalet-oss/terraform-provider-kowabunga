@@ -3,13 +3,17 @@ package provider
 import (
 	"context"
 	"fmt"
+	"maps"
+	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/host"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/nfs"
@@ -34,6 +38,7 @@ const (
 	KeyProtocols        = "protocols"
 	KeyAddress          = "address"
 	KeyPort             = "port"
+	KeyPorts            = "ports"
 	KeyTlsKey           = "key"
 	KeyTlsCert          = "cert"
 	KeyTlsCA            = "ca"
@@ -80,9 +85,13 @@ const (
 	KeyNotify           = "notify"
 	KeyPrivateSubnets   = "private_subnets"
 	KeyProject          = "project"
+	KeyPublicIp         = "public_ip"
+	KeyPrivateIp        = "private_ip"
+	KeyNats             = "nats"
 	KeyType             = "type"
 	KeyOS               = "os"
 	KeyTemplate         = "template"
+	KeyTimeouts         = "timeouts"
 	KeySize             = "size"
 	KeyResizable        = "resizable"
 	KeyVCPUs            = "vcpus"
@@ -105,6 +114,13 @@ const (
 )
 
 const (
+	DefaultCreateTimeout = 3 * time.Minute
+	DefaultDeleteTimeout = 2 * time.Minute
+	DefaultReadTimeout   = 1 * time.Minute
+	DefaultUpdateTimeout = 2 * time.Minute
+)
+
+const (
 	ErrorGeneric              = "Kowabunga Error"
 	ErrorUnconfiguredResource = "Unexpected Resource Configure Type"
 	ErrorExpectedProviderData = "Expected *KowabungaProviderData, got: %T."
@@ -124,6 +140,11 @@ const (
 	ResourceNameDescription = "Resource name"
 	ResourceDescDescription = "Resource extended description"
 )
+
+type ResourceBaseModel struct {
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+}
 
 func errorUnconfiguredResource(req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	resp.Diagnostics.AddError(
@@ -148,7 +169,19 @@ func errorDeleteGeneric(resp *resource.DeleteResponse, err error) {
 	resp.Diagnostics.AddError(ErrorGeneric, err.Error())
 }
 
-func resourceAttributes() map[string]schema.Attribute {
+func resourceAttributes(ctx *context.Context) map[string]schema.Attribute {
+	defaultAttr := map[string]schema.Attribute{
+		KeyName: schema.StringAttribute{
+			MarkdownDescription: ResourceNameDescription,
+			Required:            true,
+		},
+	}
+	maps.Copy(defaultAttr, resourceAttributesWithoutName(ctx))
+
+	return defaultAttr
+}
+
+func resourceAttributesWithoutName(ctx *context.Context) map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		KeyID: schema.StringAttribute{
 			Computed:            true,
@@ -156,10 +189,6 @@ func resourceAttributes() map[string]schema.Attribute {
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
 			},
-		},
-		KeyName: schema.StringAttribute{
-			MarkdownDescription: ResourceNameDescription,
-			Required:            true,
 		},
 		KeyDesc: schema.StringAttribute{
 			MarkdownDescription: ResourceDescDescription,
@@ -170,6 +199,16 @@ func resourceAttributes() map[string]schema.Attribute {
 				stringplanmodifier.UseStateForUnknown(),
 			},
 		},
+		KeyTimeouts: timeouts.Attributes(*ctx, timeouts.Opts{
+			Create:            true,
+			Read:              true,
+			Update:            true,
+			Delete:            true,
+			CreateDescription: DefaultCreateTimeout.String(),
+			ReadDescription:   DefaultReadTimeout.String(),
+			UpdateDescription: DefaultUpdateTimeout.String(),
+			DeleteDescription: DefaultDeleteTimeout.String(),
+		}),
 	}
 }
 
@@ -409,4 +448,52 @@ func getHostID(data *KowabungaProviderData, id string) (string, error) {
 	}
 
 	return "", fmt.Errorf(ErrorUnknownHost)
+}
+
+func (r *ResourceBaseModel) SetCreateTimeout(ctx context.Context, resp *resource.CreateResponse, duration time.Duration) (context.Context, time.Duration, context.CancelFunc) {
+
+	timeout, diags := r.Timeouts.Create(ctx, duration)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return ctx, timeout, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+
+	return ctx, timeout, cancel
+}
+
+func (r *ResourceBaseModel) SetUpdateTimeout(ctx context.Context, resp *resource.UpdateResponse, duration time.Duration) (context.Context, time.Duration, context.CancelFunc) {
+
+	timeout, diags := r.Timeouts.Update(ctx, duration)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return ctx, timeout, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+
+	return ctx, timeout, cancel
+}
+
+func (r *ResourceBaseModel) SetReadTimeout(ctx context.Context, resp *resource.ReadResponse, duration time.Duration) (context.Context, time.Duration, context.CancelFunc) {
+
+	timeout, diags := r.Timeouts.Read(ctx, duration)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return ctx, timeout, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+
+	return ctx, timeout, cancel
+}
+
+func (r *ResourceBaseModel) SetDeleteTimeout(ctx context.Context, resp *resource.DeleteResponse, duration time.Duration) (context.Context, time.Duration, context.CancelFunc) {
+
+	timeout, diags := r.Timeouts.Delete(ctx, duration)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return ctx, timeout, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+
+	return ctx, timeout, cancel
 }

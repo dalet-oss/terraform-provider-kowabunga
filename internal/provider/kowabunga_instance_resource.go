@@ -2,8 +2,9 @@ package provider
 
 import (
 	"context"
-	"golang.org/x/exp/maps"
 	"sort"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/instance"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
@@ -33,7 +34,9 @@ type InstanceResource struct {
 }
 
 type InstanceResourceModel struct {
-	ID       types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name     types.String `tfsdk:"name"`
 	Desc     types.String `tfsdk:"desc"`
 	Project  types.String `tfsdk:"project"`
@@ -95,7 +98,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts instance from Terraform model to Kowabunga API model
@@ -148,6 +151,9 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -167,7 +173,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	// create a new instance
 	cfg := instanceResourceToModel(data)
-	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg)
+	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Project.CreateProjectZoneInstance(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -187,10 +193,13 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := instance.NewGetInstanceParams().WithInstanceID(data.ID.ValueString())
+	params := instance.NewGetInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Instance.GetInstance(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -208,11 +217,14 @@ func (r *InstanceResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := instanceResourceToModel(data)
-	params := instance.NewUpdateInstanceParams().WithInstanceID(data.ID.ValueString()).WithBody(&cfg)
+	params := instance.NewUpdateInstanceParams().WithInstanceID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Instance.UpdateInstance(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -228,11 +240,13 @@ func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := instance.NewDeleteInstanceParams().WithInstanceID(data.ID.ValueString())
+	params := instance.NewDeleteInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Instance.DeleteInstance(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
@@ -33,7 +34,9 @@ type VNetResource struct {
 }
 
 type VNetResourceModel struct {
-	ID        types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name      types.String `tfsdk:"name"`
 	Desc      types.String `tfsdk:"desc"`
 	Zone      types.String `tfsdk:"zone"`
@@ -82,7 +85,7 @@ func (r *VNetResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts virtual network from Terraform model to Kowabunga API model
@@ -116,6 +119,9 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -128,7 +134,7 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// create a new virtual network
 	cfg := vnetResourceToModel(data)
-	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg)
+	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Zone.CreateVNet(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -148,10 +154,13 @@ func (r *VNetResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := vnet.NewGetVNetParams().WithVnetID(data.ID.ValueString())
+	params := vnet.NewGetVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Vnet.GetVNet(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -169,11 +178,14 @@ func (r *VNetResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := vnetResourceToModel(data)
-	params := vnet.NewUpdateVNetParams().WithVnetID(data.ID.ValueString()).WithBody(&cfg)
+	params := vnet.NewUpdateVNetParams().WithVnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Vnet.UpdateVNet(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -190,10 +202,13 @@ func (r *VNetResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := vnet.NewDeleteVNetParams().WithVnetID(data.ID.ValueString())
+	params := vnet.NewDeleteVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Vnet.DeleteVNet(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

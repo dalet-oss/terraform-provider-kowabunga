@@ -3,8 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
-	"golang.org/x/exp/maps"
 	"strings"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
@@ -34,7 +35,9 @@ type SubnetResource struct {
 }
 
 type SubnetResourceModel struct {
-	ID       types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name     types.String `tfsdk:"name"`
 	Desc     types.String `tfsdk:"desc"`
 	VNet     types.String `tfsdk:"vnet"`
@@ -96,7 +99,7 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts subnet from Terraform model to Kowabunga API model
@@ -161,6 +164,9 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -173,7 +179,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// create a new subnet
 	cfg := subnetResourceToModel(data)
-	params := vnet.NewCreateSubnetParams().WithVnetID(vnetId).WithBody(&cfg)
+	params := vnet.NewCreateSubnetParams().WithVnetID(vnetId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Vnet.CreateSubnet(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -203,10 +209,13 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := subnet.NewGetSubnetParams().WithSubnetID(data.ID.ValueString())
+	params := subnet.NewGetSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Subnet.GetSubnet(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -224,11 +233,14 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := subnetResourceToModel(data)
-	params := subnet.NewUpdateSubnetParams().WithSubnetID(data.ID.ValueString()).WithBody(&cfg)
+	params := subnet.NewUpdateSubnetParams().WithSubnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Subnet.UpdateSubnet(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -245,10 +257,13 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := subnet.NewDeleteSubnetParams().WithSubnetID(data.ID.ValueString())
+	params := subnet.NewDeleteSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Subnet.DeleteSubnet(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

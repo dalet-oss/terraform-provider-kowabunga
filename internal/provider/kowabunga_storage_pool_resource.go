@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/pool"
@@ -39,7 +40,9 @@ type StoragePoolResource struct {
 }
 
 type StoragePoolResourceModel struct {
-	ID       types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name     types.String `tfsdk:"name"`
 	Desc     types.String `tfsdk:"desc"`
 	Zone     types.String `tfsdk:"zone"`
@@ -133,7 +136,7 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts storage pool from Terraform model to Kowabunga API model
@@ -180,6 +183,9 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -195,7 +201,7 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 
 	// create a new storage pool
 	cfg := storagePoolResourceToModel(data)
-	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg)
+	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
 	if hostId != "" {
 		params = params.WithHostID(&hostId)
 	}
@@ -228,10 +234,13 @@ func (r *StoragePoolResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := pool.NewGetPoolParams().WithPoolID(data.ID.ValueString())
+	params := pool.NewGetPoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Pool.GetPool(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -249,11 +258,14 @@ func (r *StoragePoolResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := storagePoolResourceToModel(data)
-	params := pool.NewUpdatePoolParams().WithPoolID(data.ID.ValueString()).WithBody(&cfg)
+	params := pool.NewUpdatePoolParams().WithPoolID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Pool.UpdatePool(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -270,10 +282,13 @@ func (r *StoragePoolResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := pool.NewDeletePoolParams().WithPoolID(data.ID.ValueString())
+	params := pool.NewDeletePoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Pool.DeletePool(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

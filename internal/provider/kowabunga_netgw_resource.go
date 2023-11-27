@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/netgw"
@@ -32,7 +33,9 @@ type NetGWResource struct {
 }
 
 type NetGWResourceModel struct {
-	ID      types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name    types.String `tfsdk:"name"`
 	Desc    types.String `tfsdk:"desc"`
 	Zone    types.String `tfsdk:"zone"`
@@ -80,7 +83,7 @@ func (r *NetGWResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts netgw from Terraform model to Kowabunga API model
@@ -114,6 +117,9 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -126,7 +132,7 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	// create a new network gateway
 	cfg := netgwResourceToModel(data)
-	params := zone.NewCreateNetGWParams().WithZoneID(zoneId).WithBody(&cfg)
+	params := zone.NewCreateNetGWParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Zone.CreateNetGW(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -146,10 +152,13 @@ func (r *NetGWResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := netgw.NewGetNetGWParams().WithNetgwID(data.ID.ValueString())
+	params := netgw.NewGetNetGWParams().WithNetgwID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Netgw.GetNetGW(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -167,11 +176,14 @@ func (r *NetGWResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := netgwResourceToModel(data)
-	params := netgw.NewUpdateNetGWParams().WithNetgwID(data.ID.ValueString()).WithBody(&cfg)
+	params := netgw.NewUpdateNetGWParams().WithNetgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Netgw.UpdateNetGW(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -188,10 +200,13 @@ func (r *NetGWResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := netgw.NewDeleteNetGWParams().WithNetgwID(data.ID.ValueString())
+	params := netgw.NewDeleteNetGWParams().WithNetgwID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Netgw.DeleteNetGW(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

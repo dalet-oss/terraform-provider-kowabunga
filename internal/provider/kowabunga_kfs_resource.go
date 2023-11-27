@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kfs"
@@ -37,7 +38,9 @@ type KfsResource struct {
 }
 
 type KfsResourceModel struct {
-	ID        types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name      types.String `tfsdk:"name"`
 	Desc      types.String `tfsdk:"desc"`
 	Project   types.String `tfsdk:"project"`
@@ -115,7 +118,7 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts kfs from Terraform model to Kowabunga API model
@@ -156,6 +159,9 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -178,7 +184,7 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// create a new KFS
 	cfg := kfsResourceToModel(data)
-	params := project.NewCreateProjectZoneKfsParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg)
+	params := project.NewCreateProjectZoneKfsParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(createTimeout)
 	if nfsId != "" {
 		params = params.WithNfsID(&nfsId)
 	}
@@ -201,10 +207,13 @@ func (r *KfsResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kfs.NewGetKFSParams().WithKfsID(data.ID.ValueString())
+	params := kfs.NewGetKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Kfs.GetKFS(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -222,11 +231,14 @@ func (r *KfsResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := kfsResourceToModel(data)
-	params := kfs.NewUpdateKFSParams().WithKfsID(data.ID.ValueString()).WithBody(&cfg)
+	params := kfs.NewUpdateKFSParams().WithKfsID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Kfs.UpdateKFS(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -242,11 +254,13 @@ func (r *KfsResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kfs.NewDeleteKFSParams().WithKfsID(data.ID.ValueString())
+	params := kfs.NewDeleteKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Kfs.DeleteKFS(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

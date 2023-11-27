@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/pool"
@@ -32,7 +33,9 @@ type TemplateResource struct {
 }
 
 type TemplateResourceModel struct {
-	ID      types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name    types.String `tfsdk:"name"`
 	Desc    types.String `tfsdk:"desc"`
 	Pool    types.String `tfsdk:"pool"`
@@ -81,7 +84,7 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts template from Terraform model to Kowabunga API model
@@ -113,6 +116,9 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -125,7 +131,7 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 
 	// create a new template
 	cfg := templateResourceToModel(data)
-	params := pool.NewCreateTemplateParams().WithPoolID(poolId).WithBody(&cfg)
+	params := pool.NewCreateTemplateParams().WithPoolID(poolId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Pool.CreateTemplate(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -155,10 +161,13 @@ func (r *TemplateResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := template.NewGetTemplateParams().WithTemplateID(data.ID.ValueString())
+	params := template.NewGetTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Template.GetTemplate(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -175,12 +184,13 @@ func (r *TemplateResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := templateResourceToModel(data)
-	params := template.NewUpdateTemplateParams().WithTemplateID(data.ID.ValueString()).WithBody(&cfg)
+	params := template.NewUpdateTemplateParams().WithTemplateID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Template.UpdateTemplate(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -197,10 +207,13 @@ func (r *TemplateResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := template.NewDeleteTemplateParams().WithTemplateID(data.ID.ValueString())
+	params := template.NewDeleteTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Template.DeleteTemplate(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

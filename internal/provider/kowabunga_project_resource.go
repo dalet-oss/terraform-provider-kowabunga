@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
@@ -37,7 +38,9 @@ type ProjectResource struct {
 }
 
 type ProjectResourceModel struct {
-	ID             types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name           types.String `tfsdk:"name"`
 	Desc           types.String `tfsdk:"desc"`
 	Owner          types.String `tfsdk:"owner"`
@@ -166,7 +169,7 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts project from Terraform model to Kowabunga API model
@@ -250,12 +253,15 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	// create a new project
 	cfg := projectResourceToModel(data)
-	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueInt64Pointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg)
+	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueInt64Pointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Project.CreateProject(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -275,10 +281,13 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := project.NewGetProjectParams().WithProjectID(data.ID.ValueString())
+	params := project.NewGetProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Project.GetProject(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -296,11 +305,14 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := projectResourceToModel(data)
-	params := project.NewUpdateProjectParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg)
+	params := project.NewUpdateProjectParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Project.UpdateProject(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -317,10 +329,13 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := project.NewDeleteProjectParams().WithProjectID(data.ID.ValueString())
+	params := project.NewDeleteProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Project.DeleteProject(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

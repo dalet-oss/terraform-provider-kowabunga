@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/host"
@@ -37,7 +38,9 @@ type HostResource struct {
 }
 
 type HostResourceModel struct {
-	ID               types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name             types.String `tfsdk:"name"`
 	Desc             types.String `tfsdk:"desc"`
 	Zone             types.String `tfsdk:"zone"`
@@ -155,7 +158,7 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts host from Terraform model to Kowabunga API model
@@ -226,6 +229,9 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -238,7 +244,7 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// create a new host
 	cfg := hostResourceToModel(data)
-	params := zone.NewCreateHostParams().WithZoneID(zoneId).WithBody(&cfg)
+	params := zone.NewCreateHostParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Zone.CreateHost(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -258,10 +264,13 @@ func (r *HostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := host.NewGetHostParams().WithHostID(data.ID.ValueString())
+	params := host.NewGetHostParams().WithHostID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Host.GetHost(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -279,11 +288,14 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := hostResourceToModel(data)
-	params := host.NewUpdateHostParams().WithHostID(data.ID.ValueString()).WithBody(&cfg)
+	params := host.NewUpdateHostParams().WithHostID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Host.UpdateHost(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -299,11 +311,13 @@ func (r *HostResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := host.NewDeleteHostParams().WithHostID(data.ID.ValueString())
+	params := host.NewDeleteHostParams().WithHostID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Host.DeleteHost(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

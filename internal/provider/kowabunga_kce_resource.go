@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kce"
@@ -36,7 +37,9 @@ type KceResource struct {
 }
 
 type KceResourceModel struct {
-	ID        types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name      types.String `tfsdk:"name"`
 	Desc      types.String `tfsdk:"desc"`
 	Project   types.String `tfsdk:"project"`
@@ -128,7 +131,7 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts kce from Terraform model to Kowabunga API model
@@ -174,6 +177,9 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -199,7 +205,7 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// create a new KCE
 	cfg := kceResourceToModel(data)
-	params := project.NewCreateProjectZoneKceParams().WithProjectID(projectId).WithZoneID(zoneId).WithPublic(data.Public.ValueBoolPointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg)
+	params := project.NewCreateProjectZoneKceParams().WithProjectID(projectId).WithZoneID(zoneId).WithPublic(data.Public.ValueBoolPointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(createTimeout)
 	if poolId != "" {
 		params = params.WithPoolID(&poolId)
 	}
@@ -224,11 +230,13 @@ func (r *KceResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kce.NewGetKCEParams().WithKceID(data.ID.ValueString())
+	params := kce.NewGetKCEParams().WithKceID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Kce.GetKCE(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -245,12 +253,14 @@ func (r *KceResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := kceResourceToModel(data)
-	params := kce.NewUpdateKCEParams().WithKceID(data.ID.ValueString()).WithBody(&cfg)
+	params := kce.NewUpdateKCEParams().WithKceID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Kce.UpdateKCE(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -266,11 +276,13 @@ func (r *KceResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kce.NewDeleteKCEParams().WithKceID(data.ID.ValueString())
+	params := kce.NewDeleteKCEParams().WithKceID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Kce.DeleteKCE(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

@@ -2,8 +2,9 @@ package provider
 
 import (
 	"context"
-	"golang.org/x/exp/maps"
 	"sort"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/nfs"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
@@ -42,7 +43,9 @@ type StorageNfsResource struct {
 }
 
 type StorageNfsResourceModel struct {
-	ID       types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name     types.String `tfsdk:"name"`
 	Desc     types.String `tfsdk:"desc"`
 	Zone     types.String `tfsdk:"zone"`
@@ -109,7 +112,7 @@ func (r *StorageNfsResource) Schema(ctx context.Context, req resource.SchemaRequ
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts NFS storage from Terraform model to Kowabunga API model
@@ -153,6 +156,8 @@ func (r *StorageNfsResource) Create(ctx context.Context, req resource.CreateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
@@ -166,7 +171,7 @@ func (r *StorageNfsResource) Create(ctx context.Context, req resource.CreateRequ
 
 	// create a new NFS storage
 	cfg := storageNfsResourceToModel(data)
-	params := zone.NewCreateNfsStorageParams().WithZoneID(zoneId).WithBody(&cfg)
+	params := zone.NewCreateNfsStorageParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Zone.CreateNfsStorage(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -196,10 +201,13 @@ func (r *StorageNfsResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := nfs.NewGetNfsStorageParams().WithNfsID(data.ID.ValueString())
+	params := nfs.NewGetNfsStorageParams().WithNfsID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Nfs.GetNfsStorage(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -217,11 +225,14 @@ func (r *StorageNfsResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := storageNfsResourceToModel(data)
-	params := nfs.NewUpdateNfsStorageParams().WithNfsID(data.ID.ValueString()).WithBody(&cfg)
+	params := nfs.NewUpdateNfsStorageParams().WithNfsID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Nfs.UpdateNfsStorage(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -238,10 +249,13 @@ func (r *StorageNfsResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := nfs.NewDeleteNfsStorageParams().WithNfsID(data.ID.ValueString())
+	params := nfs.NewDeleteNfsStorageParams().WithNfsID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Nfs.DeleteNfsStorage(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

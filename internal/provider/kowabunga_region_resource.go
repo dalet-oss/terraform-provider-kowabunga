@@ -28,7 +28,9 @@ type RegionResource struct {
 }
 
 type RegionResourceModel struct {
-	ID   types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name types.String `tfsdk:"name"`
 	Desc types.String `tfsdk:"desc"`
 }
@@ -48,7 +50,7 @@ func (r *RegionResource) Configure(ctx context.Context, req resource.ConfigureRe
 func (r *RegionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a region resource",
-		Attributes:          resourceAttributes(),
+		Attributes:          resourceAttributes(&ctx),
 	}
 }
 
@@ -77,11 +79,14 @@ func (r *RegionResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := regionResourceToModel(data)
-	params := region.NewCreateRegionParams().WithBody(&cfg)
+	params := region.NewCreateRegionParams().WithBody(&cfg).WithTimeout(createTimeout)
 	obj, err := r.Data.K.Region.CreateRegion(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -101,10 +106,13 @@ func (r *RegionResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := region.NewGetRegionParams().WithRegionID(data.ID.ValueString())
+	params := region.NewGetRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Region.GetRegion(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -122,11 +130,13 @@ func (r *RegionResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := regionResourceToModel(data)
-	params := region.NewUpdateRegionParams().WithRegionID(data.ID.ValueString()).WithBody(&cfg)
+	params := region.NewUpdateRegionParams().WithRegionID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Region.UpdateRegion(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -143,10 +153,13 @@ func (r *RegionResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := region.NewDeleteRegionParams().WithRegionID(data.ID.ValueString())
+	params := region.NewDeleteRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Region.DeleteRegion(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

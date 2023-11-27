@@ -4,11 +4,12 @@ go 1.21
 
 require (
 	github.com/3th1nk/cidr v0.2.0
-	github.com/dalet-oss/kowabunga-api v0.9.1
+	github.com/dalet-oss/kowabunga-api v0.10.0
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/hashicorp/terraform-plugin-docs v0.16.0
 	github.com/hashicorp/terraform-plugin-framework v1.4.1
+	github.com/hashicorp/terraform-plugin-framework-timeouts v0.4.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df

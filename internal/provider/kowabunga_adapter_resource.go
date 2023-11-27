@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+
 	"github.com/3th1nk/cidr"
 	"golang.org/x/exp/maps"
 
@@ -39,7 +40,9 @@ type AdapterResource struct {
 }
 
 type AdapterResourceModel struct {
-	ID             types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name           types.String `tfsdk:"name"`
 	Desc           types.String `tfsdk:"desc"`
 	Subnet         types.String `tfsdk:"subnet"`
@@ -137,7 +140,7 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts adapter from Terraform model to Kowabunga API model
@@ -211,6 +214,9 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -223,7 +229,7 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// create a new adapter
 	cfg := adapterResourceToModel(data)
-	params := subnet.NewCreateAdapterParams().WithSubnetID(subnetId).WithBody(&cfg)
+	params := subnet.NewCreateAdapterParams().WithSubnetID(subnetId).WithBody(&cfg).WithTimeout(createTimeout)
 	if data.Assign.ValueBool() && len(cfg.Addresses) == 0 {
 		params = params.WithAssignIP(data.Assign.ValueBoolPointer())
 	}
@@ -253,10 +259,13 @@ func (r *AdapterResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := adapter.NewGetAdapterParams().WithAdapterID(data.ID.ValueString())
+	params := adapter.NewGetAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Adapter.GetAdapter(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -281,11 +290,14 @@ func (r *AdapterResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := adapterResourceToModel(data)
-	params := adapter.NewUpdateAdapterParams().WithAdapterID(data.ID.ValueString()).WithBody(&cfg)
+	params := adapter.NewUpdateAdapterParams().WithAdapterID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Adapter.UpdateAdapter(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -301,11 +313,13 @@ func (r *AdapterResource) Delete(ctx context.Context, req resource.DeleteRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := adapter.NewDeleteAdapterParams().WithAdapterID(data.ID.ValueString())
+	params := adapter.NewDeleteAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Adapter.DeleteAdapter(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)

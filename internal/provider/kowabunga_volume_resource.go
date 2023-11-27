@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"golang.org/x/exp/maps"
 
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
@@ -31,7 +32,9 @@ type VolumeResource struct {
 }
 
 type VolumeResourceModel struct {
-	ID        types.String `tfsdk:"id"`
+	//anonymous field
+	ResourceBaseModel
+
 	Name      types.String `tfsdk:"name"`
 	Desc      types.String `tfsdk:"desc"`
 	Project   types.String `tfsdk:"project"`
@@ -91,7 +94,7 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			},
 		},
 	}
-	maps.Copy(resp.Schema.Attributes, resourceAttributes())
+	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
 // converts volume from Terraform model to Kowabunga API model
@@ -123,6 +126,9 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
@@ -148,7 +154,7 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// create a new volume
 	cfg := volumeResourceToModel(data)
-	params := project.NewCreateProjectZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg)
+	params := project.NewCreateProjectZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
 	if poolId != "" {
 		params = params.WithPoolID(&poolId)
 	}
@@ -174,10 +180,13 @@ func (r *VolumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
+	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := volume.NewGetVolumeParams().WithVolumeID(data.ID.ValueString())
+	params := volume.NewGetVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(readTimeout)
 	obj, err := r.Data.K.Volume.GetVolume(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -194,12 +203,13 @@ func (r *VolumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	defer cancel()
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := volumeResourceToModel(data)
-	params := volume.NewUpdateVolumeParams().WithVolumeID(data.ID.ValueString()).WithBody(&cfg)
+	params := volume.NewUpdateVolumeParams().WithVolumeID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
 	_, err := r.Data.K.Volume.UpdateVolume(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -216,10 +226,13 @@ func (r *VolumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := volume.NewDeleteVolumeParams().WithVolumeID(data.ID.ValueString())
+	params := volume.NewDeleteVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(deleteTimeout)
 	_, err := r.Data.K.Volume.DeleteVolume(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
