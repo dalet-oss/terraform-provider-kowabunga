@@ -29,7 +29,18 @@ Manages a storage volume resource
 - `pool` (String) Associated storage pool name or ID (zone's default if unspecified)
 - `resizable` (Boolean) Is the storage volume allowed to grow (filesystem dependant) ? (default: **false**)
 - `template` (String) The template name or ID
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) 3m0s
+- `delete` (String) 2m0s
+- `read` (String) 1m0s
+- `update` (String) 2m0s

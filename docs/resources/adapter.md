@@ -27,6 +27,7 @@ Manages a network adapter resource
 - `desc` (String) Resource extended description
 - `hwaddress` (String) Network adapter hardware MAC address (e.g. 00:11:22:33:44:55). AUto-generated if unspecified.
 - `reserved` (Boolean) Whether the network adapter is reserved (e.g. router), i.e. where the same hardware address can be reused over several subnets (default: **false**)
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
@@ -35,3 +36,13 @@ Manages a network adapter resource
 - `id` (String) Resource object internal identifier
 - `netmask` (String) Network mask (read-only), e.g. 255.255.255.0
 - `netmask_bitsize` (Number) Network mask size (read-only), e.g 24
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) 3m0s
+- `delete` (String) 2m0s
+- `read` (String) 1m0s
+- `update` (String) 2m0s

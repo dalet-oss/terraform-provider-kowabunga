@@ -31,8 +31,19 @@ Manages a storage pool resource
 - `port` (Number) Ceph RBD monitor port number
 - `price` (Number) libvirt host monthly price value (default: 0)
 - `secret` (String, Sensitive) CephX client authentication UUID
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `type` (String) Storage pool type ('local' or 'rbd', defaults to 'rbd')
 
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) 3m0s
+- `delete` (String) 2m0s
+- `read` (String) 1m0s
+- `update` (String) 2m0s

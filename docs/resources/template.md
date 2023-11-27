@@ -25,8 +25,19 @@ Manages a storage pool's template resource
 - `default` (Boolean) Whether to set template as zone's default one (default: **false**). The first template to be created is always considered as default.
 - `desc` (String) Resource extended description
 - `os` (String) The template type (valid options: 'linux', 'windows'). Defaults to **linux**.
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `type` (String) The template type (valid options: 'os', 'raw'). Defaults to **os**.
 
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) 3m0s
+- `delete` (String) 2m0s
+- `read` (String) 1m0s
+- `update` (String) 2m0s

@@ -28,8 +28,19 @@ Manages a KFS distributed network storage resource. **KFS** (stands for *Kowabun
 - `nfs` (String) Associated NFS storage name or ID (zone's default if unspecified)
 - `notify` (Boolean) Whether to send email notification at creation (default: **true**)
 - `protocols` (List of Number) KFS's requested NFS protocols versions (defaults to NFSv3 and NFSv4))
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
 - `endpoint` (String) NFS Endoint (read-only)
 - `id` (String) Resource object internal identifier
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) 3m0s
+- `delete` (String) 2m0s
+- `read` (String) 1m0s
+- `update` (String) 2m0s
