@@ -6,7 +6,7 @@ GOVULNCHECK = $(BINDIR)/govulncheck
 GOVULNCHECK_VERSION = v1.0.1
 
 GOLINT = $(BINDIR)/golangci-lint
-GOLINT_VERSION = v1.52.2
+GOLINT_VERSION = v1.55.2
 
 V = 0
 Q = $(if $(filter 1,$V),,@)
