@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -38,23 +39,22 @@ type HostResource struct {
 }
 
 type HostResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name             types.String `tfsdk:"name"`
-	Desc             types.String `tfsdk:"desc"`
-	Zone             types.String `tfsdk:"zone"`
-	Protocol         types.String `tfsdk:"protocol"`
-	Address          types.String `tfsdk:"address"`
-	Port             types.Int64  `tfsdk:"port"`
-	TlsKey           types.String `tfsdk:"key"`
-	TlsCert          types.String `tfsdk:"cert"`
-	TlsCA            types.String `tfsdk:"ca"`
-	CpuPrice         types.Int64  `tfsdk:"cpu_price"`
-	MemoryPrice      types.Int64  `tfsdk:"memory_price"`
-	Currency         types.String `tfsdk:"currency"`
-	CpuOvercommit    types.Int64  `tfsdk:"cpu_overcommit"`
-	MemoryOvercommit types.Int64  `tfsdk:"memory_overcommit"`
+	ID               types.String   `tfsdk:"id"`
+	Timeouts         timeouts.Value `tfsdk:"timeouts"`
+	Name             types.String   `tfsdk:"name"`
+	Desc             types.String   `tfsdk:"desc"`
+	Zone             types.String   `tfsdk:"zone"`
+	Protocol         types.String   `tfsdk:"protocol"`
+	Address          types.String   `tfsdk:"address"`
+	Port             types.Int64    `tfsdk:"port"`
+	TlsKey           types.String   `tfsdk:"key"`
+	TlsCert          types.String   `tfsdk:"cert"`
+	TlsCA            types.String   `tfsdk:"ca"`
+	CpuPrice         types.Int64    `tfsdk:"cpu_price"`
+	MemoryPrice      types.Int64    `tfsdk:"memory_price"`
+	Currency         types.String   `tfsdk:"currency"`
+	CpuOvercommit    types.Int64    `tfsdk:"cpu_overcommit"`
+	MemoryOvercommit types.Int64    `tfsdk:"memory_overcommit"`
 }
 
 func (r *HostResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -229,7 +229,12 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -241,16 +246,14 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	// create a new host
 	cfg := hostResourceToModel(data)
-	params := zone.NewCreateHostParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := zone.NewCreateHostParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Zone.CreateHost(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	data.ID = types.StringValue(obj.Payload.ID)
 	hostModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created host resource")
@@ -264,13 +267,18 @@ func (r *HostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := host.NewGetHostParams().WithHostID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := host.NewGetHostParams().WithHostID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Host.GetHost(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -288,20 +296,24 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := hostResourceToModel(data)
-	params := host.NewUpdateHostParams().WithHostID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := host.NewUpdateHostParams().WithHostID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Host.UpdateHost(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
 	}
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -311,16 +323,22 @@ func (r *HostResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := host.NewDeleteHostParams().WithHostID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := host.NewDeleteHostParams().WithHostID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Host.DeleteHost(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

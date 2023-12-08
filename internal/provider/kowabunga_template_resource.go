@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/template"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -33,15 +34,14 @@ type TemplateResource struct {
 }
 
 type TemplateResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name    types.String `tfsdk:"name"`
-	Desc    types.String `tfsdk:"desc"`
-	Pool    types.String `tfsdk:"pool"`
-	Type    types.String `tfsdk:"type"`
-	OS      types.String `tfsdk:"os"`
-	Default types.Bool   `tfsdk:"default"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
+	Pool     types.String   `tfsdk:"pool"`
+	Type     types.String   `tfsdk:"type"`
+	OS       types.String   `tfsdk:"os"`
+	Default  types.Bool     `tfsdk:"default"`
 }
 
 func (r *TemplateResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -116,7 +116,12 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -128,16 +133,16 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// create a new template
 	cfg := templateResourceToModel(data)
-	params := pool.NewCreateTemplateParams().WithPoolID(poolId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := pool.NewCreateTemplateParams().WithPoolID(poolId).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Pool.CreateTemplate(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// set template as default
 	if data.Default.ValueBool() {
 		params2 := pool.NewUpdatePoolDefaultTemplateParams().WithPoolID(poolId).WithTemplateID(obj.Payload.ID)
@@ -161,13 +166,18 @@ func (r *TemplateResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := template.NewGetTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := template.NewGetTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Template.GetTemplate(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -184,13 +194,18 @@ func (r *TemplateResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := templateResourceToModel(data)
-	params := template.NewUpdateTemplateParams().WithTemplateID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := template.NewUpdateTemplateParams().WithTemplateID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Template.UpdateTemplate(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -207,16 +222,22 @@ func (r *TemplateResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := template.NewDeleteTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := template.NewDeleteTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Template.DeleteTemplate(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

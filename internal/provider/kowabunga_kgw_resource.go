@@ -7,6 +7,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -36,11 +37,10 @@ type KgwResource struct {
 }
 
 type KgwResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Desc    types.String `tfsdk:"desc"`
-	Project types.String `tfsdk:"project"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Desc     types.String   `tfsdk:"desc"`
+	Project  types.String   `tfsdk:"project"`
 
 	Zone      types.String `tfsdk:"zone"`
 	PublicIp  types.String `tfsdk:"public_ip"`
@@ -205,7 +205,12 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -217,20 +222,20 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// find parent zone
 	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	cfg := kgwResourceToModel(&ctx, data)
 
 	// create a new KGW
 	params := project.NewCreateProjectZoneKgwParams().
 		WithProjectID(projectId).WithZoneID(zoneId).
-		WithBody(&cfg).WithTimeout(createTimeout)
+		WithBody(&cfg).WithTimeout(timeout)
 
 	obj, err := r.Data.K.Project.CreateProjectZoneKgw(params, nil)
 
@@ -238,7 +243,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	kgwModelToResource(&ctx, obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created KGW resource")
@@ -252,13 +257,18 @@ func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kgw.NewGetKgwParams().WithKgwID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := kgw.NewGetKgwParams().WithKgwID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Kgw.GetKgw(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -276,14 +286,19 @@ func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := kgwResourceToModel(&ctx, data)
-	params := kgw.NewUpdateKGWParams().WithKgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := kgw.NewUpdateKGWParams().WithKgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Kgw.UpdateKGW(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -300,16 +315,22 @@ func (r *KgwResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kgw.NewDeleteKGWParams().WithKgwID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := kgw.NewDeleteKGWParams().WithKgwID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Kgw.DeleteKGW(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

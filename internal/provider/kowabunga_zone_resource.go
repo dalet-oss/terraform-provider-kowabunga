@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -31,12 +32,11 @@ type ZoneResource struct {
 }
 
 type ZoneResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name   types.String `tfsdk:"name"`
-	Desc   types.String `tfsdk:"desc"`
-	Region types.String `tfsdk:"region"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
+	Region   types.String   `tfsdk:"region"`
 }
 
 func (r *ZoneResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -89,7 +89,12 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -101,16 +106,16 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// create a new zone
 	cfg := zoneResourceToModel(data)
-	params := region.NewCreateZoneParams().WithRegionID(regionId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := region.NewCreateZoneParams().WithRegionID(regionId).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Region.CreateZone(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	zoneModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created zone resource")
@@ -124,13 +129,18 @@ func (r *ZoneResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := zone.NewGetZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := zone.NewGetZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Zone.GetZone(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -147,13 +157,19 @@ func (r *ZoneResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := zoneResourceToModel(data)
-	params := zone.NewUpdateZoneParams().WithZoneID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := zone.NewUpdateZoneParams().WithZoneID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Zone.UpdateZone(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -170,16 +186,22 @@ func (r *ZoneResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := zone.NewDeleteZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := zone.NewDeleteZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Zone.DeleteZone(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

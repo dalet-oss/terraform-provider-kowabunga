@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -40,21 +41,20 @@ type StoragePoolResource struct {
 }
 
 type StoragePoolResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name     types.String `tfsdk:"name"`
-	Desc     types.String `tfsdk:"desc"`
-	Zone     types.String `tfsdk:"zone"`
-	Type     types.String `tfsdk:"type"`
-	Host     types.String `tfsdk:"host"`
-	Pool     types.String `tfsdk:"pool"`
-	Address  types.String `tfsdk:"address"`
-	Port     types.Int64  `tfsdk:"port"`
-	Secret   types.String `tfsdk:"secret"`
-	Price    types.Int64  `tfsdk:"price"`
-	Currency types.String `tfsdk:"currency"`
-	Default  types.Bool   `tfsdk:"default"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
+	Zone     types.String   `tfsdk:"zone"`
+	Type     types.String   `tfsdk:"type"`
+	Host     types.String   `tfsdk:"host"`
+	Pool     types.String   `tfsdk:"pool"`
+	Address  types.String   `tfsdk:"address"`
+	Port     types.Int64    `tfsdk:"port"`
+	Secret   types.String   `tfsdk:"secret"`
+	Price    types.Int64    `tfsdk:"price"`
+	Currency types.String   `tfsdk:"currency"`
+	Default  types.Bool     `tfsdk:"default"`
 }
 
 func (r *StoragePoolResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -183,7 +183,12 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -195,13 +200,13 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// find parent template (optional)
 	hostId, _ := getHostID(r.Data, data.Host.ValueString())
 
 	// create a new storage pool
 	cfg := storagePoolResourceToModel(data)
-	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
 	if hostId != "" {
 		params = params.WithHostID(&hostId)
 	}
@@ -210,7 +215,7 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// set storage pool as default
 	if data.Default.ValueBool() {
 		params2 := zone.NewUpdateZoneDefaultPoolParams().WithZoneID(zoneId).WithPoolID(obj.Payload.ID)
@@ -234,13 +239,18 @@ func (r *StoragePoolResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := pool.NewGetPoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := pool.NewGetPoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Pool.GetPool(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -258,14 +268,19 @@ func (r *StoragePoolResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := storagePoolResourceToModel(data)
-	params := pool.NewUpdatePoolParams().WithPoolID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := pool.NewUpdatePoolParams().WithPoolID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Pool.UpdatePool(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -282,16 +297,22 @@ func (r *StoragePoolResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := pool.NewDeletePoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := pool.NewDeletePoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Pool.DeletePool(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

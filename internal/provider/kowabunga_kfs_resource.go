@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -38,17 +39,16 @@ type KfsResource struct {
 }
 
 type KfsResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name      types.String `tfsdk:"name"`
-	Desc      types.String `tfsdk:"desc"`
-	Project   types.String `tfsdk:"project"`
-	Zone      types.String `tfsdk:"zone"`
-	Nfs       types.String `tfsdk:"nfs"`
-	Access    types.String `tfsdk:"access_type"`
-	Protocols types.List   `tfsdk:"protocols"`
-	Notify    types.Bool   `tfsdk:"notify"`
+	ID        types.String   `tfsdk:"id"`
+	Timeouts  timeouts.Value `tfsdk:"timeouts"`
+	Name      types.String   `tfsdk:"name"`
+	Desc      types.String   `tfsdk:"desc"`
+	Project   types.String   `tfsdk:"project"`
+	Zone      types.String   `tfsdk:"zone"`
+	Nfs       types.String   `tfsdk:"nfs"`
+	Access    types.String   `tfsdk:"access_type"`
+	Protocols types.List     `tfsdk:"protocols"`
+	Notify    types.Bool     `tfsdk:"notify"`
 	// read-only
 	Endpoint types.String `tfsdk:"endpoint"`
 }
@@ -159,7 +159,12 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -171,20 +176,20 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// find parent zone
 	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// find parent NFS storage (optional)
 	nfsId, _ := getNfsID(r.Data, data.Nfs.ValueString())
 
 	// create a new KFS
 	cfg := kfsResourceToModel(data)
-	params := project.NewCreateProjectZoneKfsParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(createTimeout)
+	params := project.NewCreateProjectZoneKfsParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(timeout)
 	if nfsId != "" {
 		params = params.WithNfsID(&nfsId)
 	}
@@ -193,7 +198,7 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	kfsModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created KFS resource")
@@ -207,13 +212,18 @@ func (r *KfsResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kfs.NewGetKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := kfs.NewGetKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Kfs.GetKFS(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -231,14 +241,19 @@ func (r *KfsResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := kfsResourceToModel(data)
-	params := kfs.NewUpdateKFSParams().WithKfsID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := kfs.NewUpdateKFSParams().WithKfsID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Kfs.UpdateKFS(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -254,16 +269,22 @@ func (r *KfsResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kfs.NewDeleteKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := kfs.NewDeleteKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Kfs.DeleteKFS(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

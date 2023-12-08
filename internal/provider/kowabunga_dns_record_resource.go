@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/record"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -32,13 +33,12 @@ type DnsRecordResource struct {
 }
 
 type DnsRecordResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name      types.String `tfsdk:"name"`
-	Desc      types.String `tfsdk:"desc"`
-	Project   types.String `tfsdk:"project"`
-	Addresses types.List   `tfsdk:"addresses"`
+	ID        types.String   `tfsdk:"id"`
+	Timeouts  timeouts.Value `tfsdk:"timeouts"`
+	Name      types.String   `tfsdk:"name"`
+	Desc      types.String   `tfsdk:"desc"`
+	Project   types.String   `tfsdk:"project"`
+	Addresses types.List     `tfsdk:"addresses"`
 }
 
 func (r *DnsRecordResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -100,7 +100,12 @@ func (r *DnsRecordResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -112,16 +117,14 @@ func (r *DnsRecordResource) Create(ctx context.Context, req resource.CreateReque
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	// create a new record
 	cfg := recordResourceToModel(data)
-	params := project.NewCreateProjectDNSRecordParams().WithProjectID(projectId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := project.NewCreateProjectDNSRecordParams().WithProjectID(projectId).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Project.CreateProjectDNSRecord(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	data.ID = types.StringValue(obj.Payload.ID)
 	tflog.Trace(ctx, "created DNS record resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -134,13 +137,18 @@ func (r *DnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := record.NewGetDNSRecordParams().WithRecordID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := record.NewGetDNSRecordParams().WithRecordID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Record.GetDNSRecord(params, nil)
 	if err != nil {
 		tflog.Trace(ctx, err.Error())
@@ -159,20 +167,24 @@ func (r *DnsRecordResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := recordResourceToModel(data)
-	params := record.NewUpdateDNSRecordParams().WithRecordID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := record.NewUpdateDNSRecordParams().WithRecordID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Record.UpdateDNSRecord(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
 	}
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -182,16 +194,22 @@ func (r *DnsRecordResource) Delete(ctx context.Context, req resource.DeleteReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	_, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := record.NewDeleteDNSRecordParams().WithRecordID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := record.NewDeleteDNSRecordParams().WithRecordID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Record.DeleteDNSRecord(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

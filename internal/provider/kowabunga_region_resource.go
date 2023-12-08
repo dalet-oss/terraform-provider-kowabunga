@@ -6,6 +6,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/region"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -28,11 +29,10 @@ type RegionResource struct {
 }
 
 type RegionResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name types.String `tfsdk:"name"`
-	Desc types.String `tfsdk:"desc"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
 }
 
 func (r *RegionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -79,20 +79,25 @@ func (r *RegionResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := regionResourceToModel(data)
-	params := region.NewCreateRegionParams().WithBody(&cfg).WithTimeout(createTimeout)
+	params := region.NewCreateRegionParams().WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Region.CreateRegion(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	regionModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created region resource")
@@ -105,14 +110,18 @@ func (r *RegionResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := region.NewGetRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := region.NewGetRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Region.GetRegion(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -130,13 +139,18 @@ func (r *RegionResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := regionResourceToModel(data)
-	params := region.NewUpdateRegionParams().WithRegionID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := region.NewUpdateRegionParams().WithRegionID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Region.UpdateRegion(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -153,16 +167,22 @@ func (r *RegionResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := region.NewDeleteRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := region.NewDeleteRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Region.DeleteRegion(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

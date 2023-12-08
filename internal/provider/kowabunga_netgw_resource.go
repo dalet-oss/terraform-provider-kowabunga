@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -33,15 +34,14 @@ type NetGWResource struct {
 }
 
 type NetGWResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name    types.String `tfsdk:"name"`
-	Desc    types.String `tfsdk:"desc"`
-	Zone    types.String `tfsdk:"zone"`
-	Address types.String `tfsdk:"address"`
-	Port    types.Int64  `tfsdk:"port"`
-	Token   types.String `tfsdk:"token"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
+	Zone     types.String   `tfsdk:"zone"`
+	Address  types.String   `tfsdk:"address"`
+	Port     types.Int64    `tfsdk:"port"`
+	Token    types.String   `tfsdk:"token"`
 }
 
 func (r *NetGWResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -117,7 +117,12 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -129,16 +134,16 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// create a new network gateway
 	cfg := netgwResourceToModel(data)
-	params := zone.NewCreateNetGWParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := zone.NewCreateNetGWParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Zone.CreateNetGW(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	netgwModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created netgw resource")
@@ -152,13 +157,18 @@ func (r *NetGWResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := netgw.NewGetNetGWParams().WithNetgwID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := netgw.NewGetNetGWParams().WithNetgwID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Netgw.GetNetGW(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -176,14 +186,19 @@ func (r *NetGWResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := netgwResourceToModel(data)
-	params := netgw.NewUpdateNetGWParams().WithNetgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := netgw.NewUpdateNetGWParams().WithNetgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Netgw.UpdateNetGW(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -200,16 +215,22 @@ func (r *NetGWResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := netgw.NewDeleteNetGWParams().WithNetgwID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := netgw.NewDeleteNetGWParams().WithNetgwID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Netgw.DeleteNetGW(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

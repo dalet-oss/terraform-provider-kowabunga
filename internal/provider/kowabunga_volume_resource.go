@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/volume"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -32,18 +33,17 @@ type VolumeResource struct {
 }
 
 type VolumeResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name      types.String `tfsdk:"name"`
-	Desc      types.String `tfsdk:"desc"`
-	Project   types.String `tfsdk:"project"`
-	Zone      types.String `tfsdk:"zone"`
-	Pool      types.String `tfsdk:"pool"`
-	Template  types.String `tfsdk:"template"`
-	Type      types.String `tfsdk:"type"`
-	Size      types.Int64  `tfsdk:"size"`
-	Resizable types.Bool   `tfsdk:"resizable"`
+	ID        types.String   `tfsdk:"id"`
+	Timeouts  timeouts.Value `tfsdk:"timeouts"`
+	Name      types.String   `tfsdk:"name"`
+	Desc      types.String   `tfsdk:"desc"`
+	Project   types.String   `tfsdk:"project"`
+	Zone      types.String   `tfsdk:"zone"`
+	Pool      types.String   `tfsdk:"pool"`
+	Template  types.String   `tfsdk:"template"`
+	Type      types.String   `tfsdk:"type"`
+	Size      types.Int64    `tfsdk:"size"`
+	Resizable types.Bool     `tfsdk:"resizable"`
 }
 
 func (r *VolumeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -126,7 +126,12 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -138,14 +143,14 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// find parent zone
 	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// find parent pool (optional)
 	poolId, _ := getPoolID(r.Data, data.Pool.ValueString())
 
@@ -154,7 +159,7 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// create a new volume
 	cfg := volumeResourceToModel(data)
-	params := project.NewCreateProjectZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := project.NewCreateProjectZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
 	if poolId != "" {
 		params = params.WithPoolID(&poolId)
 	}
@@ -166,7 +171,7 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	volumeModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created volume resource")
@@ -180,13 +185,18 @@ func (r *VolumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := volume.NewGetVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := volume.NewGetVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Volume.GetVolume(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -203,13 +213,18 @@ func (r *VolumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := volumeResourceToModel(data)
-	params := volume.NewUpdateVolumeParams().WithVolumeID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := volume.NewUpdateVolumeParams().WithVolumeID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Volume.UpdateVolume(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -226,16 +241,22 @@ func (r *VolumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := volume.NewDeleteVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := volume.NewDeleteVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Volume.DeleteVolume(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }

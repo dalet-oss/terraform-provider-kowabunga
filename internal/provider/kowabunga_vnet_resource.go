@@ -9,6 +9,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -34,15 +35,14 @@ type VNetResource struct {
 }
 
 type VNetResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name      types.String `tfsdk:"name"`
-	Desc      types.String `tfsdk:"desc"`
-	Zone      types.String `tfsdk:"zone"`
-	VLAN      types.Int64  `tfsdk:"vlan"`
-	Interface types.String `tfsdk:"interface"`
-	Private   types.Bool   `tfsdk:"private"`
+	ID        types.String   `tfsdk:"id"`
+	Timeouts  timeouts.Value `tfsdk:"timeouts"`
+	Name      types.String   `tfsdk:"name"`
+	Desc      types.String   `tfsdk:"desc"`
+	Zone      types.String   `tfsdk:"zone"`
+	VLAN      types.Int64    `tfsdk:"vlan"`
+	Interface types.String   `tfsdk:"interface"`
+	Private   types.Bool     `tfsdk:"private"`
 }
 
 func (r *VNetResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -119,7 +119,12 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -131,16 +136,16 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	// create a new virtual network
 	cfg := vnetResourceToModel(data)
-	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Zone.CreateVNet(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
+	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	vnetModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created vnet resource")
@@ -154,13 +159,18 @@ func (r *VNetResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := vnet.NewGetVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := vnet.NewGetVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Vnet.GetVNet(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -178,14 +188,19 @@ func (r *VNetResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := vnetResourceToModel(data)
-	params := vnet.NewUpdateVNetParams().WithVnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := vnet.NewUpdateVNetParams().WithVnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Vnet.UpdateVNet(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -202,16 +217,22 @@ func (r *VNetResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := vnet.NewDeleteVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := vnet.NewDeleteVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Vnet.DeleteVNet(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted")
 }
