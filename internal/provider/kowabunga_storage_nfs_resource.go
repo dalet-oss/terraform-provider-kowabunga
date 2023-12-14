@@ -279,5 +279,5 @@ func (r *StorageNfsResource) Delete(ctx context.Context, req resource.DeleteRequ
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.NfsID)
 }

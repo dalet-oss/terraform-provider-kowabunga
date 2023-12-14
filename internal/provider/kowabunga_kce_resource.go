@@ -305,5 +305,5 @@ func (r *KceResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.KceID)
 }

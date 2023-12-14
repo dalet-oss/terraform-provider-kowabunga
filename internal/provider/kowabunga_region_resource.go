@@ -183,5 +183,5 @@ func (r *RegionResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.RegionID)
 }

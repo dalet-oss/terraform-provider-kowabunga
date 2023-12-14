@@ -329,5 +329,5 @@ func (r *KgwResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.KgwID)
 }

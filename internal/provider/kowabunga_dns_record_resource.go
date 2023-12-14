@@ -211,5 +211,5 @@ func (r *DnsRecordResource) Delete(ctx context.Context, req resource.DeleteReque
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.RecordID)
 }

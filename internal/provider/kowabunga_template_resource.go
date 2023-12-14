@@ -237,5 +237,5 @@ func (r *TemplateResource) Delete(ctx context.Context, req resource.DeleteReques
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.TemplateID)
 }

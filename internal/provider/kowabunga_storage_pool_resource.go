@@ -312,5 +312,5 @@ func (r *StoragePoolResource) Delete(ctx context.Context, req resource.DeleteReq
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.PoolID)
 }

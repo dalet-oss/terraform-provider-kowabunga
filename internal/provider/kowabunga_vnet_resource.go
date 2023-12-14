@@ -232,5 +232,5 @@ func (r *VNetResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted")
+	tflog.Trace(ctx, "Deleted "+params.VnetID)
 }
