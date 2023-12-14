@@ -11,6 +11,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -35,18 +36,17 @@ type SubnetResource struct {
 }
 
 type SubnetResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name     types.String `tfsdk:"name"`
-	Desc     types.String `tfsdk:"desc"`
-	VNet     types.String `tfsdk:"vnet"`
-	CIDR     types.String `tfsdk:"cidr"`
-	Gateway  types.String `tfsdk:"gateway"`
-	DNS      types.String `tfsdk:"dns"`
-	Reserved types.List   `tfsdk:"reserved"`
-	Routes   types.List   `tfsdk:"routes"`
-	Default  types.Bool   `tfsdk:"default"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
+	VNet     types.String   `tfsdk:"vnet"`
+	CIDR     types.String   `tfsdk:"cidr"`
+	Gateway  types.String   `tfsdk:"gateway"`
+	DNS      types.String   `tfsdk:"dns"`
+	Reserved types.List     `tfsdk:"reserved"`
+	Routes   types.List     `tfsdk:"routes"`
+	Default  types.Bool     `tfsdk:"default"`
 }
 
 func (r *SubnetResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -164,7 +164,12 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -176,16 +181,14 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	// create a new subnet
 	cfg := subnetResourceToModel(data)
-	params := vnet.NewCreateSubnetParams().WithVnetID(vnetId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := vnet.NewCreateSubnetParams().WithVnetID(vnetId).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Vnet.CreateSubnet(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	// set virtual network as default
 	if data.Default.ValueBool() {
 		params2 := vnet.NewUpdateVNetDefaultSubnetParams().WithVnetID(vnetId).WithSubnetID(obj.Payload.ID)
@@ -209,13 +212,18 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := subnet.NewGetSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := subnet.NewGetSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Subnet.GetSubnet(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
@@ -233,14 +241,19 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := subnetResourceToModel(data)
-	params := subnet.NewUpdateSubnetParams().WithSubnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := subnet.NewUpdateSubnetParams().WithSubnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Subnet.UpdateSubnet(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -257,16 +270,22 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := subnet.NewDeleteSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := subnet.NewDeleteSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Subnet.DeleteSubnet(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted "+params.SubnetID)
 }

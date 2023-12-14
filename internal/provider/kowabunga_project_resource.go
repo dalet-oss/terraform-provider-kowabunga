@@ -8,6 +8,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -38,26 +39,25 @@ type ProjectResource struct {
 }
 
 type ProjectResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name           types.String `tfsdk:"name"`
-	Desc           types.String `tfsdk:"desc"`
-	Owner          types.String `tfsdk:"owner"`
-	Email          types.String `tfsdk:"email"`
-	Domain         types.String `tfsdk:"domain"`
-	SubnetSize     types.Int64  `tfsdk:"subnet_size"`
-	RootPassword   types.String `tfsdk:"root_password"`
-	User           types.String `tfsdk:"bootstrap_user"`
-	Pubkey         types.String `tfsdk:"bootstrap_pubkey"`
-	Tags           types.List   `tfsdk:"tags"`
-	Metadatas      types.Map    `tfsdk:"metadata"`
-	MaxInstances   types.Int64  `tfsdk:"max_instances"`
-	MaxMemory      types.Int64  `tfsdk:"max_memory"`
-	MaxStorage     types.Int64  `tfsdk:"max_storage"`
-	MaxVCPUs       types.Int64  `tfsdk:"max_vcpus"`
-	Notify         types.Bool   `tfsdk:"notify"`
-	PrivateSubnets types.Map    `tfsdk:"private_subnets"`
+	ID             types.String   `tfsdk:"id"`
+	Timeouts       timeouts.Value `tfsdk:"timeouts"`
+	Name           types.String   `tfsdk:"name"`
+	Desc           types.String   `tfsdk:"desc"`
+	Owner          types.String   `tfsdk:"owner"`
+	Email          types.String   `tfsdk:"email"`
+	Domain         types.String   `tfsdk:"domain"`
+	SubnetSize     types.Int64    `tfsdk:"subnet_size"`
+	RootPassword   types.String   `tfsdk:"root_password"`
+	User           types.String   `tfsdk:"bootstrap_user"`
+	Pubkey         types.String   `tfsdk:"bootstrap_pubkey"`
+	Tags           types.List     `tfsdk:"tags"`
+	Metadatas      types.Map      `tfsdk:"metadata"`
+	MaxInstances   types.Int64    `tfsdk:"max_instances"`
+	MaxMemory      types.Int64    `tfsdk:"max_memory"`
+	MaxStorage     types.Int64    `tfsdk:"max_storage"`
+	MaxVCPUs       types.Int64    `tfsdk:"max_vcpus"`
+	Notify         types.Bool     `tfsdk:"notify"`
+	PrivateSubnets types.Map      `tfsdk:"private_subnets"`
 }
 
 type ProjectQuotaModel struct {
@@ -253,7 +253,12 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -261,7 +266,7 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// create a new project
 	cfg := projectResourceToModel(data)
-	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueInt64Pointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(createTimeout)
+	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueInt64Pointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Project.CreateProject(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
@@ -281,18 +286,24 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := project.NewGetProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := project.NewGetProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Project.GetProject(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
+
 	projectModelToResource(obj.Payload, data)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -305,14 +316,19 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := projectResourceToModel(data)
-	params := project.NewUpdateProjectParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := project.NewUpdateProjectParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Project.UpdateProject(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -329,16 +345,22 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := project.NewDeleteProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := project.NewDeleteProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Project.DeleteProject(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted "+params.ProjectID)
 }

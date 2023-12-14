@@ -11,6 +11,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -40,20 +41,19 @@ type AdapterResource struct {
 }
 
 type AdapterResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name           types.String `tfsdk:"name"`
-	Desc           types.String `tfsdk:"desc"`
-	Subnet         types.String `tfsdk:"subnet"`
-	MAC            types.String `tfsdk:"hwaddress"`
-	Addresses      types.List   `tfsdk:"addresses"`
-	Assign         types.Bool   `tfsdk:"assign"`
-	Reserved       types.Bool   `tfsdk:"reserved"`
-	CIDR           types.String `tfsdk:"cidr"`
-	Netmask        types.String `tfsdk:"netmask"`
-	NetmaskBitSize types.Int64  `tfsdk:"netmask_bitsize"`
-	Gateway        types.String `tfsdk:"gateway"`
+	ID             types.String   `tfsdk:"id"`
+	Timeouts       timeouts.Value `tfsdk:"timeouts"`
+	Name           types.String   `tfsdk:"name"`
+	Desc           types.String   `tfsdk:"desc"`
+	Subnet         types.String   `tfsdk:"subnet"`
+	MAC            types.String   `tfsdk:"hwaddress"`
+	Addresses      types.List     `tfsdk:"addresses"`
+	Assign         types.Bool     `tfsdk:"assign"`
+	Reserved       types.Bool     `tfsdk:"reserved"`
+	CIDR           types.String   `tfsdk:"cidr"`
+	Netmask        types.String   `tfsdk:"netmask"`
+	NetmaskBitSize types.Int64    `tfsdk:"netmask_bitsize"`
+	Gateway        types.String   `tfsdk:"gateway"`
 }
 
 func (r *AdapterResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -214,7 +214,12 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -229,7 +234,7 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// create a new adapter
 	cfg := adapterResourceToModel(data)
-	params := subnet.NewCreateAdapterParams().WithSubnetID(subnetId).WithBody(&cfg).WithTimeout(createTimeout)
+	params := subnet.NewCreateAdapterParams().WithSubnetID(subnetId).WithBody(&cfg).WithTimeout(timeout)
 	if data.Assign.ValueBool() && len(cfg.Addresses) == 0 {
 		params = params.WithAssignIP(data.Assign.ValueBoolPointer())
 	}
@@ -259,19 +264,23 @@ func (r *AdapterResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := adapter.NewGetAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := adapter.NewGetAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Adapter.GetAdapter(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
-
 	adapterModelToResource(obj.Payload, data)
 
 	err = r.GetSubnetData(data)
@@ -279,7 +288,6 @@ func (r *AdapterResource) Read(ctx context.Context, req resource.ReadRequest, re
 		errorReadGeneric(resp, err)
 		return
 	}
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -290,14 +298,19 @@ func (r *AdapterResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := adapterResourceToModel(data)
-	params := adapter.NewUpdateAdapterParams().WithAdapterID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := adapter.NewUpdateAdapterParams().WithAdapterID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Adapter.UpdateAdapter(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -313,16 +326,22 @@ func (r *AdapterResource) Delete(ctx context.Context, req resource.DeleteRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := adapter.NewDeleteAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := adapter.NewDeleteAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Adapter.DeleteAdapter(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted "+params.AdapterID)
 }

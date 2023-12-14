@@ -10,6 +10,7 @@ import (
 	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
 	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -34,18 +35,17 @@ type InstanceResource struct {
 }
 
 type InstanceResourceModel struct {
-	//anonymous field
-	ResourceBaseModel
-
-	Name     types.String `tfsdk:"name"`
-	Desc     types.String `tfsdk:"desc"`
-	Project  types.String `tfsdk:"project"`
-	Zone     types.String `tfsdk:"zone"`
-	VCPUs    types.Int64  `tfsdk:"vcpus"`
-	Memory   types.Int64  `tfsdk:"mem"`
-	Adapters types.List   `tfsdk:"adapters"`
-	Volumes  types.List   `tfsdk:"volumes"`
-	Notify   types.Bool   `tfsdk:"notify"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
+	Project  types.String   `tfsdk:"project"`
+	Zone     types.String   `tfsdk:"zone"`
+	VCPUs    types.Int64    `tfsdk:"vcpus"`
+	Memory   types.Int64    `tfsdk:"mem"`
+	Adapters types.List     `tfsdk:"adapters"`
+	Volumes  types.List     `tfsdk:"volumes"`
+	Notify   types.Bool     `tfsdk:"notify"`
 }
 
 func (r *InstanceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -151,7 +151,12 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	ctx, createTimeout, cancel := data.SetCreateTimeout(ctx, resp, DefaultCreateTimeout)
+	timeout, diags := data.Timeouts.Create(ctx, DefaultCreateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
@@ -163,23 +168,20 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	// find parent zone
 	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	// create a new instance
 	cfg := instanceResourceToModel(data)
-	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(createTimeout)
+	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(timeout)
 	obj, err := r.Data.K.Project.CreateProjectZoneInstance(params, nil)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-
 	data.ID = types.StringValue(obj.Payload.ID)
 	instanceModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created instance resource")
@@ -193,19 +195,23 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	ctx, readTimeout, cancel := data.SetReadTimeout(ctx, resp, DefaultReadTimeout)
+	timeout, diags := data.Timeouts.Read(ctx, DefaultReadTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := instance.NewGetInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(readTimeout)
+	params := instance.NewGetInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(timeout)
 	obj, err := r.Data.K.Instance.GetInstance(params, nil)
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
-
 	instanceModelToResource(obj.Payload, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -217,14 +223,19 @@ func (r *InstanceResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	ctx, updateTimeout, cancel := data.SetUpdateTimeout(ctx, resp, DefaultUpdateTimeout)
+	timeout, diags := data.Timeouts.Update(ctx, DefaultUpdateTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
 	cfg := instanceResourceToModel(data)
-	params := instance.NewUpdateInstanceParams().WithInstanceID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(updateTimeout)
+	params := instance.NewUpdateInstanceParams().WithInstanceID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
 	_, err := r.Data.K.Instance.UpdateInstance(params, nil)
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -240,16 +251,22 @@ func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	_, deleteTimeout, cancel := data.SetDeleteTimeout(ctx, resp, DefaultDeleteTimeout)
+	timeout, diags := data.Timeouts.Delete(ctx, DefaultDeleteTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := instance.NewDeleteInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(deleteTimeout)
+	params := instance.NewDeleteInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(timeout)
 	_, err := r.Data.K.Instance.DeleteInstance(params, nil)
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
+	tflog.Trace(ctx, "Deleted "+params.InstanceID)
 }
