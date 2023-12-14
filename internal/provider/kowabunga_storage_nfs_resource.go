@@ -173,7 +173,6 @@ func (r *StorageNfsResource) Create(ctx context.Context, req resource.CreateRequ
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// create a new NFS storage
 	cfg := storageNfsResourceToModel(data)
 	params := zone.NewCreateNfsStorageParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)

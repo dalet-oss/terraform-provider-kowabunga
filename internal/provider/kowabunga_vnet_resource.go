@@ -136,7 +136,6 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// create a new virtual network
 	cfg := vnetResourceToModel(data)
 	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)

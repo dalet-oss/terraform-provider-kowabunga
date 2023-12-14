@@ -181,7 +181,6 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// create a new subnet
 	cfg := subnetResourceToModel(data)
 	params := vnet.NewCreateSubnetParams().WithVnetID(vnetId).WithBody(&cfg).WithTimeout(timeout)

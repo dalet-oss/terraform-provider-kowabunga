@@ -176,14 +176,12 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// find parent zone
 	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// find parent NFS storage (optional)
 	nfsId, _ := getNfsID(r.Data, data.Nfs.ValueString())
 

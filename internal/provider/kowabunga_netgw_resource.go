@@ -134,7 +134,6 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// create a new network gateway
 	cfg := netgwResourceToModel(data)
 	params := zone.NewCreateNetGWParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)

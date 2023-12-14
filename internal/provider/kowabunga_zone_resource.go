@@ -106,7 +106,6 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// create a new zone
 	cfg := zoneResourceToModel(data)
 	params := region.NewCreateZoneParams().WithRegionID(regionId).WithBody(&cfg).WithTimeout(timeout)

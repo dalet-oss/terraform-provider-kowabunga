@@ -133,7 +133,6 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// create a new template
 	cfg := templateResourceToModel(data)
 	params := pool.NewCreateTemplateParams().WithPoolID(poolId).WithBody(&cfg).WithTimeout(timeout)

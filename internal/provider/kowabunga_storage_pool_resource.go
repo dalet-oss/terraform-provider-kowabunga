@@ -200,7 +200,6 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// find parent template (optional)
 	hostId, _ := getHostID(r.Data, data.Host.ValueString())
 
