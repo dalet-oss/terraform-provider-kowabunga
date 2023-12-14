@@ -141,7 +141,6 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// set template as default
 	if data.Default.ValueBool() {
 		params2 := pool.NewUpdatePoolDefaultTemplateParams().WithPoolID(poolId).WithTemplateID(obj.Payload.ID)

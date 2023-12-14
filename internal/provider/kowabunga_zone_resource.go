@@ -114,7 +114,6 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	zoneModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created zone resource")

@@ -189,7 +189,6 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// set virtual network as default
 	if data.Default.ValueBool() {
 		params2 := vnet.NewUpdateVNetDefaultSubnetParams().WithVnetID(vnetId).WithSubnetID(obj.Payload.ID)

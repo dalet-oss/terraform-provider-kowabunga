@@ -241,7 +241,6 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	kgwModelToResource(&ctx, obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created KGW resource")

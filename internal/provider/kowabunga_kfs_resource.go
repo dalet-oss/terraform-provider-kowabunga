@@ -196,7 +196,6 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	data.ID = types.StringValue(obj.Payload.ID)
 	kfsModelToResource(obj.Payload, data) // read back resulting object
 	tflog.Trace(ctx, "created KFS resource")

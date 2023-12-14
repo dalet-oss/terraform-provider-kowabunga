@@ -214,7 +214,6 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// set storage pool as default
 	if data.Default.ValueBool() {
 		params2 := zone.NewUpdateZoneDefaultPoolParams().WithZoneID(zoneId).WithPoolID(obj.Payload.ID)

@@ -181,7 +181,6 @@ func (r *StorageNfsResource) Create(ctx context.Context, req resource.CreateRequ
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Created")
 	// set NFS storage as default
 	if data.Default.ValueBool() {
 		params2 := zone.NewUpdateZoneDefaultNfsStorageParams().WithZoneID(zoneId).WithNfsID(obj.Payload.ID)
