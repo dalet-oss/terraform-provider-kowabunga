@@ -7,9 +7,7 @@ import (
 	"github.com/3th1nk/cidr"
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/adapter"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -144,33 +142,37 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 }
 
 // converts adapter from Terraform model to Kowabunga API model
-func adapterResourceToModel(d *AdapterResourceModel) models.Adapter {
+func adapterResourceToModel(d *AdapterResourceModel) sdk.Adapter {
 	addresses := []string{}
 	d.Addresses.ElementsAs(context.TODO(), &addresses, false)
-	return models.Adapter{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Mac:         d.MAC.ValueString(),
+	return sdk.Adapter{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
+		Mac:         d.MAC.ValueStringPointer(),
 		Addresses:   addresses,
 		Reserved:    d.Reserved.ValueBoolPointer(),
 	}
 }
 
 // converts adapter from Kowabunga API model to Terraform model
-func adapterModelToResource(r *models.Adapter, d *AdapterResourceModel) {
+func adapterModelToResource(r *sdk.Adapter, d *AdapterResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.MAC = types.StringValue(r.Mac)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.MAC = types.StringPointerValue(r.Mac)
 	addresses := []attr.Value{}
 	for _, a := range r.Addresses {
 		addresses = append(addresses, types.StringValue(a))
 	}
 	d.Addresses, _ = types.ListValue(types.StringType, addresses)
-	d.Reserved = types.BoolPointerValue(r.Reserved)
+	if r.Reserved != nil {
+		d.Reserved = types.BoolPointerValue(r.Reserved)
+	} else {
+		d.Reserved = types.BoolValue(false)
+	}
 }
 
 func ipv4MaskString(m []byte) string {
@@ -180,29 +182,28 @@ func ipv4MaskString(m []byte) string {
 	return fmt.Sprintf("%d.%d.%d.%d", m[0], m[1], m[2], m[3])
 }
 
-func (r *AdapterResource) GetSubnetData(data *AdapterResourceModel) error {
+func (r *AdapterResource) GetSubnetData(ctx context.Context, data *AdapterResourceModel) error {
 	// find real subnet id if a string was provided
-	subnetId, err := getSubnetID(r.Data, data.Subnet.ValueString())
+	subnetId, err := getSubnetID(ctx, r.Data, data.Subnet.ValueString())
 	if err != nil {
 		return err
 	}
 
-	params := subnet.NewGetSubnetParams().WithSubnetID(subnetId)
-	obj, err := r.Data.K.Subnet.GetSubnet(params, nil)
+	subnet, _, err := r.Data.K.SubnetAPI.ReadSubnet(ctx, subnetId).Execute()
 	if err != nil {
 		return err
 	}
 
-	data.CIDR = types.StringPointerValue(obj.Payload.Cidr)
+	data.CIDR = types.StringValue(subnet.Cidr)
 
-	c, err := cidr.Parse(*obj.Payload.Cidr)
+	c, err := cidr.Parse(subnet.Cidr)
 	if err != nil {
 		return err
 	}
 	data.Netmask = types.StringValue(ipv4MaskString(c.Mask()))
 	size, _ := c.MaskSize()
 	data.NetmaskBitSize = types.Int64Value(int64(size))
-	data.Gateway = types.StringPointerValue(obj.Payload.Gateway)
+	data.Gateway = types.StringValue(subnet.Gateway)
 
 	return nil
 }
@@ -226,28 +227,28 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 	defer r.Data.Mutex.Unlock()
 
 	// find parent subnet
-	subnetId, err := getSubnetID(r.Data, data.Subnet.ValueString())
+	subnetId, err := getSubnetID(ctx, r.Data, data.Subnet.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 
 	// create a new adapter
-	cfg := adapterResourceToModel(data)
-	params := subnet.NewCreateAdapterParams().WithSubnetID(subnetId).WithBody(&cfg).WithTimeout(timeout)
-	if data.Assign.ValueBool() && len(cfg.Addresses) == 0 {
-		params = params.WithAssignIP(data.Assign.ValueBoolPointer())
+	m := adapterResourceToModel(data)
+	api := r.Data.K.SubnetAPI.CreateAdapter(ctx, subnetId).Adapter(m)
+	if data.Assign.ValueBool() && len(m.Addresses) == 0 {
+		api.AssignIP(data.Assign.ValueBool())
 	}
 
-	obj, err := r.Data.K.Subnet.CreateAdapter(params, nil)
+	adapter, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 
-	data.ID = types.StringValue(obj.Payload.ID)
-	adapterModelToResource(obj.Payload, data) // read back resulting object
-	err = r.GetSubnetData(data)
+	data.ID = types.StringPointerValue(adapter.Id)
+	adapterModelToResource(adapter, data) // read back resulting object
+	err = r.GetSubnetData(ctx, data)
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
@@ -275,15 +276,14 @@ func (r *AdapterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := adapter.NewGetAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Adapter.GetAdapter(params, nil)
+	adapter, _, err := r.Data.K.AdapterAPI.ReadAdapter(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
-	adapterModelToResource(obj.Payload, data)
+	adapterModelToResource(adapter, data)
 
-	err = r.GetSubnetData(data)
+	err = r.GetSubnetData(ctx, data)
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
@@ -309,9 +309,8 @@ func (r *AdapterResource) Update(ctx context.Context, req resource.UpdateRequest
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := adapterResourceToModel(data)
-	params := adapter.NewUpdateAdapterParams().WithAdapterID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Adapter.UpdateAdapter(params, nil)
+	m := adapterResourceToModel(data)
+	_, _, err := r.Data.K.AdapterAPI.UpdateAdapter(ctx, data.ID.ValueString()).Adapter(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -337,11 +336,10 @@ func (r *AdapterResource) Delete(ctx context.Context, req resource.DeleteRequest
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := adapter.NewDeleteAdapterParams().WithAdapterID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Adapter.DeleteAdapter(params, nil)
+	_, err := r.Data.K.AdapterAPI.DeleteAdapter(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.AdapterID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/pool"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/template"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -68,13 +66,13 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "The template type (valid options: 'os', 'raw'). Defaults to **os**.",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString(models.TemplateTypeOs),
+				Default:             stringdefault.StaticString("os"),
 			},
 			KeyOS: schema.StringAttribute{
 				MarkdownDescription: "The template type (valid options: 'linux', 'windows'). Defaults to **linux**.",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString(models.TemplateOsLinux),
+				Default:             stringdefault.StaticString("linux"),
 			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set template as zone's default one (default: **false**). The first template to be created is always considered as default.",
@@ -88,23 +86,23 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 }
 
 // converts template from Terraform model to Kowabunga API model
-func templateResourceToModel(d *TemplateResourceModel) models.Template {
-	return models.Template{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
+func templateResourceToModel(d *TemplateResourceModel) sdk.Template {
+	return sdk.Template{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
 		Type:        d.Type.ValueStringPointer(),
 		Os:          d.OS.ValueStringPointer(),
 	}
 }
 
 // converts template from Kowabunga API model to Terraform model
-func templateModelToResource(r *models.Template, d *TemplateResourceModel) {
+func templateModelToResource(r *sdk.Template, d *TemplateResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
 	d.Type = types.StringPointerValue(r.Type)
 	d.OS = types.StringPointerValue(r.Os)
 }
@@ -128,31 +126,29 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 	defer r.Data.Mutex.Unlock()
 
 	// find parent pool
-	poolId, err := getPoolID(r.Data, data.Pool.ValueString())
+	poolId, err := getPoolID(ctx, r.Data, data.Pool.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new template
-	cfg := templateResourceToModel(data)
-	params := pool.NewCreateTemplateParams().WithPoolID(poolId).WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Pool.CreateTemplate(params, nil)
+	m := templateResourceToModel(data)
+	template, _, err := r.Data.K.PoolAPI.CreateTemplate(ctx, poolId).Template(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// set template as default
 	if data.Default.ValueBool() {
-		params2 := pool.NewUpdatePoolDefaultTemplateParams().WithPoolID(poolId).WithTemplateID(obj.Payload.ID)
-		_, err = r.Data.K.Pool.UpdatePoolDefaultTemplate(params2, nil)
+		_, err = r.Data.K.PoolAPI.SetStoragePoolDefaultTemplate(ctx, poolId, *template.Id).Execute()
 		if err != nil {
 			errorCreateGeneric(resp, err)
 			return
 		}
 	}
 
-	data.ID = types.StringValue(obj.Payload.ID)
-	templateModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(template.Id)
+	templateModelToResource(template, data) // read back resulting object
 	tflog.Trace(ctx, "created template resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -175,14 +171,13 @@ func (r *TemplateResource) Read(ctx context.Context, req resource.ReadRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := template.NewGetTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Template.GetTemplate(params, nil)
+	template, _, err := r.Data.K.TemplateAPI.ReadTemplate(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	templateModelToResource(obj.Payload, data)
+	templateModelToResource(template, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -202,9 +197,8 @@ func (r *TemplateResource) Update(ctx context.Context, req resource.UpdateReques
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := templateResourceToModel(data)
-	params := template.NewUpdateTemplateParams().WithTemplateID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Template.UpdateTemplate(params, nil)
+	m := templateResourceToModel(data)
+	_, _, err := r.Data.K.TemplateAPI.UpdateTemplate(ctx, data.ID.ValueString()).Template(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -231,11 +225,10 @@ func (r *TemplateResource) Delete(ctx context.Context, req resource.DeleteReques
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := template.NewDeleteTemplateParams().WithTemplateID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Template.DeleteTemplate(params, nil)
+	_, err := r.Data.K.TemplateAPI.DeleteTemplate(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.TemplateID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

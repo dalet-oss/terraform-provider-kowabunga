@@ -3,8 +3,7 @@ package provider
 import (
 	"context"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/region"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -55,21 +54,21 @@ func (r *RegionResource) Schema(ctx context.Context, req resource.SchemaRequest,
 }
 
 // converts region from Terraform model to Kowabunga API model
-func regionResourceToModel(d *RegionResourceModel) models.Region {
-	return models.Region{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
+func regionResourceToModel(d *RegionResourceModel) sdk.Region {
+	return sdk.Region{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
 	}
 }
 
 // converts region from Kowabunga API model to Terraform model
-func regionModelToResource(r *models.Region, d *RegionResourceModel) {
+func regionModelToResource(r *sdk.Region, d *RegionResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
 }
 
 func (r *RegionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -90,15 +89,14 @@ func (r *RegionResource) Create(ctx context.Context, req resource.CreateRequest,
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := regionResourceToModel(data)
-	params := region.NewCreateRegionParams().WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Region.CreateRegion(params, nil)
+	m := regionResourceToModel(data)
+	region, _, err := r.Data.K.RegionAPI.CreateRegion(ctx).Region(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	regionModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(region.Id)
+	regionModelToResource(region, data) // read back resulting object
 	tflog.Trace(ctx, "created region resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -120,14 +118,13 @@ func (r *RegionResource) Read(ctx context.Context, req resource.ReadRequest, res
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := region.NewGetRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Region.GetRegion(params, nil)
+	region, _, err := r.Data.K.RegionAPI.ReadRegion(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	regionModelToResource(obj.Payload, data)
+	regionModelToResource(region, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -148,9 +145,8 @@ func (r *RegionResource) Update(ctx context.Context, req resource.UpdateRequest,
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := regionResourceToModel(data)
-	params := region.NewUpdateRegionParams().WithRegionID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Region.UpdateRegion(params, nil)
+	m := regionResourceToModel(data)
+	_, _, err := r.Data.K.RegionAPI.UpdateRegion(ctx, data.ID.ValueString()).Region(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -177,11 +173,10 @@ func (r *RegionResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := region.NewDeleteRegionParams().WithRegionID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Region.DeleteRegion(params, nil)
+	_, err := r.Data.K.RegionAPI.DeleteRegion(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.RegionID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

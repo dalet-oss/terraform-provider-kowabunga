@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kce"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -135,39 +133,42 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 }
 
 // converts kce from Terraform model to Kowabunga API model
-func kceResourceToModel(d *KceResourceModel) models.KCE {
+func kceResourceToModel(d *KceResourceModel) sdk.KCE {
 	memSize := d.Memory.ValueInt64() * HelperGbToBytes
 	diskSize := d.Disk.ValueInt64() * HelperGbToBytes
 	extraDiskSize := d.ExtraDisk.ValueInt64() * HelperGbToBytes
 
-	return models.KCE{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Vcpus:       d.VCPUs.ValueInt64Pointer(),
-		Memory:      &memSize,
-		Disk:        &diskSize,
-		DataDisk:    extraDiskSize,
-		IP:          d.IP.ValueString(),
+	return sdk.KCE{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
+		Vcpus:       d.VCPUs.ValueInt64(),
+		Memory:      memSize,
+		Disk:        diskSize,
+		DataDisk:    &extraDiskSize,
+		Ip:          d.IP.ValueStringPointer(),
 	}
 }
 
 // converts kce from Kowabunga API model to Terraform model
-func kceModelToResource(r *models.KCE, d *KceResourceModel) {
+func kceModelToResource(r *sdk.KCE, d *KceResourceModel) {
 	if r == nil {
 		return
 	}
 
-	memSize := *r.Memory / HelperGbToBytes
-	diskSize := *r.Disk / HelperGbToBytes
-	extraDiskSize := r.DataDisk / HelperGbToBytes
+	memSize := r.Memory / HelperGbToBytes
+	diskSize := r.Disk / HelperGbToBytes
+	var extraDiskSize int64 = 0
+	if r.DataDisk != nil {
+		extraDiskSize = *r.DataDisk / HelperGbToBytes
+	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.VCPUs = types.Int64PointerValue(r.Vcpus)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.VCPUs = types.Int64Value(r.Vcpus)
 	d.Memory = types.Int64Value(memSize)
 	d.Disk = types.Int64Value(diskSize)
 	d.ExtraDisk = types.Int64Value(extraDiskSize)
-	d.IP = types.StringValue(r.IP)
+	d.IP = types.StringPointerValue(r.Ip)
 }
 
 func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -189,39 +190,39 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 	defer r.Data.Mutex.Unlock()
 
 	// find parent project
-	projectId, err := getProjectID(r.Data, data.Project.ValueString())
+	projectId, err := getProjectID(ctx, r.Data, data.Project.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent pool (optional)
-	poolId, _ := getPoolID(r.Data, data.Pool.ValueString())
+	poolId, _ := getPoolID(ctx, r.Data, data.Pool.ValueString())
 
 	// find parent template (optional)
-	templateId, _ := getTemplateID(r.Data, data.Template.ValueString())
+	templateId, _ := getTemplateID(ctx, r.Data, data.Template.ValueString())
 
 	// create a new KCE
-	cfg := kceResourceToModel(data)
-	params := project.NewCreateProjectZoneKceParams().WithProjectID(projectId).WithZoneID(zoneId).WithPublic(data.Public.ValueBoolPointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(timeout)
+	m := kceResourceToModel(data)
+	api := r.Data.K.ProjectAPI.CreateProjectZoneKCE(ctx, projectId, zoneId).KCE(m).Public(data.Public.ValueBool()).Notify(data.Notify.ValueBool())
 	if poolId != "" {
-		params = params.WithPoolID(&poolId)
+		api.PoolId(poolId)
 	}
 	if templateId != "" {
-		params = params.WithTemplateID(&templateId)
+		api.TemplateId(templateId)
 	}
-	obj, err := r.Data.K.Project.CreateProjectZoneKce(params, nil)
+	kce, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	kceModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(kce.Id)
+	kceModelToResource(kce, data) // read back resulting object
 	tflog.Trace(ctx, "created KCE resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -243,14 +244,13 @@ func (r *KceResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kce.NewGetKCEParams().WithKceID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Kce.GetKCE(params, nil)
+	kce, _, err := r.Data.K.KceAPI.ReadKCE(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	kceModelToResource(obj.Payload, data)
+	kceModelToResource(kce, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -271,9 +271,8 @@ func (r *KceResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := kceResourceToModel(data)
-	params := kce.NewUpdateKCEParams().WithKceID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Kce.UpdateKCE(params, nil)
+	m := kceResourceToModel(data)
+	_, _, err := r.Data.K.KceAPI.UpdateKCE(ctx, data.ID.ValueString()).KCE(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -299,11 +298,10 @@ func (r *KceResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kce.NewDeleteKCEParams().WithKceID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Kce.DeleteKCE(params, nil)
+	_, err := r.Data.K.KceAPI.DeleteKCE(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.KceID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

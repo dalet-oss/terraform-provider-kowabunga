@@ -6,9 +6,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/instance"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -102,7 +100,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 }
 
 // converts instance from Terraform model to Kowabunga API model
-func instanceResourceToModel(d *InstanceResourceModel) models.Instance {
+func instanceResourceToModel(d *InstanceResourceModel) sdk.Instance {
 	memSize := d.Memory.ValueInt64() * HelperGbToBytes
 	adapters := []string{}
 	d.Adapters.ElementsAs(context.TODO(), &adapters, false)
@@ -110,26 +108,26 @@ func instanceResourceToModel(d *InstanceResourceModel) models.Instance {
 	d.Volumes.ElementsAs(context.TODO(), &volumes, false)
 	sort.Strings(volumes)
 
-	return models.Instance{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Vcpus:       d.VCPUs.ValueInt64Pointer(),
-		Memory:      &memSize,
+	return sdk.Instance{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
+		Vcpus:       d.VCPUs.ValueInt64(),
+		Memory:      memSize,
 		Adapters:    adapters,
 		Volumes:     volumes,
 	}
 }
 
 // converts instance from Kowabunga API model to Terraform model
-func instanceModelToResource(r *models.Instance, d *InstanceResourceModel) {
+func instanceModelToResource(r *sdk.Instance, d *InstanceResourceModel) {
 	if r == nil {
 		return
 	}
 
-	memSize := *r.Memory / HelperGbToBytes
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.VCPUs = types.Int64PointerValue(r.Vcpus)
+	memSize := r.Memory / HelperGbToBytes
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.VCPUs = types.Int64Value(r.Vcpus)
 	d.Memory = types.Int64Value(memSize)
 	adapters := []attr.Value{}
 	for _, a := range r.Adapters {
@@ -163,27 +161,26 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	defer r.Data.Mutex.Unlock()
 
 	// find parent project
-	projectId, err := getProjectID(r.Data, data.Project.ValueString())
+	projectId, err := getProjectID(ctx, r.Data, data.Project.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new instance
-	cfg := instanceResourceToModel(data)
-	params := project.NewCreateProjectZoneInstanceParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Project.CreateProjectZoneInstance(params, nil)
+	m := instanceResourceToModel(data)
+	instance, _, err := r.Data.K.ProjectAPI.CreateProjectZoneInstance(ctx, projectId, zoneId).Instance(m).Notify(data.Notify.ValueBool()).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	instanceModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(instance.Id)
+	instanceModelToResource(instance, data) // read back resulting object
 	tflog.Trace(ctx, "created instance resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -206,13 +203,12 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := instance.NewGetInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Instance.GetInstance(params, nil)
+	instance, _, err := r.Data.K.InstanceAPI.ReadInstance(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
-	instanceModelToResource(obj.Payload, data)
+	instanceModelToResource(instance, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -234,9 +230,8 @@ func (r *InstanceResource) Update(ctx context.Context, req resource.UpdateReques
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := instanceResourceToModel(data)
-	params := instance.NewUpdateInstanceParams().WithInstanceID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Instance.UpdateInstance(params, nil)
+	m := instanceResourceToModel(data)
+	_, _, err := r.Data.K.InstanceAPI.UpdateInstance(ctx, data.ID.ValueString()).Instance(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -262,11 +257,10 @@ func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteReques
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := instance.NewDeleteInstanceParams().WithInstanceID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Instance.DeleteInstance(params, nil)
+	_, err := r.Data.K.InstanceAPI.DeleteInstance(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.InstanceID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

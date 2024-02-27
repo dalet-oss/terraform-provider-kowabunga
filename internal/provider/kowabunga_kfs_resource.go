@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kfs"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -122,34 +120,38 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 }
 
 // converts kfs from Terraform model to Kowabunga API model
-func kfsResourceToModel(d *KfsResourceModel) models.KFS {
-	protocols := []int64{}
-	d.Protocols.ElementsAs(context.TODO(), &protocols, false)
+func kfsResourceToModel(d *KfsResourceModel) sdk.KFS {
+	protocols64 := []int64{}
+	d.Protocols.ElementsAs(context.TODO(), &protocols64, false)
+	protocols32 := []int32{}
+	for _, p := range protocols64 {
+		protocols32 = append(protocols32, int32(p))
+	}
 
-	return models.KFS{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
+	return sdk.KFS{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
 		Access:      d.Access.ValueStringPointer(),
-		Protocols:   protocols,
-		Endpoint:    d.Endpoint.ValueString(),
+		Protocols:   protocols32,
+		Endpoint:    d.Endpoint.ValueStringPointer(),
 	}
 }
 
 // converts kfs from Kowabunga API model to Terraform model
-func kfsModelToResource(r *models.KFS, d *KfsResourceModel) {
+func kfsModelToResource(r *sdk.KFS, d *KfsResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
 	d.Access = types.StringPointerValue(r.Access)
 	protocols := []attr.Value{}
 	for _, p := range r.Protocols {
-		protocols = append(protocols, types.Int64Value(p))
+		protocols = append(protocols, types.Int64Value(int64(p)))
 	}
 	d.Protocols, _ = types.ListValue(types.Int64Type, protocols)
-	d.Endpoint = types.StringValue(r.Endpoint)
+	d.Endpoint = types.StringPointerValue(r.Endpoint)
 }
 
 func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -171,33 +173,33 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 	defer r.Data.Mutex.Unlock()
 
 	// find parent project
-	projectId, err := getProjectID(r.Data, data.Project.ValueString())
+	projectId, err := getProjectID(ctx, r.Data, data.Project.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent NFS storage (optional)
-	nfsId, _ := getNfsID(r.Data, data.Nfs.ValueString())
+	nfsId, _ := getNfsID(ctx, r.Data, data.Nfs.ValueString())
 
 	// create a new KFS
-	cfg := kfsResourceToModel(data)
-	params := project.NewCreateProjectZoneKfsParams().WithProjectID(projectId).WithZoneID(zoneId).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(timeout)
+	m := kfsResourceToModel(data)
+	api := r.Data.K.ProjectAPI.CreateProjectZoneKFS(ctx, projectId, zoneId).KFS(m).Notify(data.Notify.ValueBool())
 	if nfsId != "" {
-		params = params.WithNfsID(&nfsId)
+		api.NfsId(nfsId)
 	}
-	obj, err := r.Data.K.Project.CreateProjectZoneKfs(params, nil)
+	kfs, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	kfsModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(kfs.Id)
+	kfsModelToResource(kfs, data) // read back resulting object
 	tflog.Trace(ctx, "created KFS resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -220,14 +222,13 @@ func (r *KfsResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kfs.NewGetKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Kfs.GetKFS(params, nil)
+	kfs, _, err := r.Data.K.KfsAPI.ReadKFS(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	kfsModelToResource(obj.Payload, data)
+	kfsModelToResource(kfs, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -249,9 +250,8 @@ func (r *KfsResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := kfsResourceToModel(data)
-	params := kfs.NewUpdateKFSParams().WithKfsID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Kfs.UpdateKFS(params, nil)
+	m := kfsResourceToModel(data)
+	_, _, err := r.Data.K.KfsAPI.UpdateKFS(ctx, data.ID.ValueString()).KFS(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -277,11 +277,10 @@ func (r *KfsResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kfs.NewDeleteKFSParams().WithKfsID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Kfs.DeleteKFS(params, nil)
+	_, err := r.Data.K.KfsAPI.DeleteKFS(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.KfsID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

@@ -7,9 +7,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -103,8 +101,8 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 }
 
 // converts subnet from Terraform model to Kowabunga API model
-func subnetResourceToModel(d *SubnetResourceModel) models.Subnet {
-	reservedRanges := []*models.IPRange{}
+func subnetResourceToModel(d *SubnetResourceModel) sdk.Subnet {
+	reservedRanges := []sdk.IpRange{}
 	ranges := []string{}
 	d.Reserved.ElementsAs(context.TODO(), &ranges, false)
 	for _, item := range ranges {
@@ -112,41 +110,41 @@ func subnetResourceToModel(d *SubnetResourceModel) models.Subnet {
 		if len(split) != 2 {
 			continue
 		}
-		ipr := models.IPRange{
-			First: &split[0],
-			Last:  &split[1],
+		ipr := sdk.IpRange{
+			First: split[0],
+			Last:  split[1],
 		}
-		reservedRanges = append(reservedRanges, &ipr)
+		reservedRanges = append(reservedRanges, ipr)
 	}
 	routes := []string{}
 	d.Routes.ElementsAs(context.TODO(), &routes, false)
 
-	return models.Subnet{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Cidr:        d.CIDR.ValueStringPointer(),
-		Gateway:     d.Gateway.ValueStringPointer(),
-		DNS:         d.DNS.ValueString(),
+	return sdk.Subnet{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
+		Cidr:        d.CIDR.ValueString(),
+		Gateway:     d.Gateway.ValueString(),
+		Dns:         d.DNS.ValueStringPointer(),
 		Reserved:    reservedRanges,
 		ExtraRoutes: routes,
 	}
 }
 
 // converts subnet from Kowabunga API model to Terraform model
-func subnetModelToResource(s *models.Subnet, d *SubnetResourceModel) {
+func subnetModelToResource(s *sdk.Subnet, d *SubnetResourceModel) {
 	if s == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(s.Name)
-	d.Desc = types.StringValue(s.Description)
-	d.CIDR = types.StringPointerValue(s.Cidr)
-	d.Gateway = types.StringPointerValue(s.Gateway)
-	d.DNS = types.StringValue(s.DNS)
+	d.Name = types.StringValue(s.Name)
+	d.Desc = types.StringPointerValue(s.Description)
+	d.CIDR = types.StringValue(s.Cidr)
+	d.Gateway = types.StringValue(s.Gateway)
+	d.DNS = types.StringPointerValue(s.Dns)
 
 	ranges := []attr.Value{}
 	for _, item := range s.Reserved {
-		ipr := fmt.Sprintf("%s-%s", *item.First, *item.Last)
+		ipr := fmt.Sprintf("%s-%s", item.First, item.Last)
 		ranges = append(ranges, types.StringValue(ipr))
 	}
 	d.Reserved, _ = types.ListValue(types.StringType, ranges)
@@ -176,31 +174,29 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 	defer r.Data.Mutex.Unlock()
 
 	// find parent vnet
-	vnetId, err := getVNetID(r.Data, data.VNet.ValueString())
+	vnetId, err := getVNetID(ctx, r.Data, data.VNet.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new subnet
-	cfg := subnetResourceToModel(data)
-	params := vnet.NewCreateSubnetParams().WithVnetID(vnetId).WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Vnet.CreateSubnet(params, nil)
+	m := subnetResourceToModel(data)
+	subnet, _, err := r.Data.K.VnetAPI.CreateSubnet(ctx, vnetId).Subnet(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// set virtual network as default
 	if data.Default.ValueBool() {
-		params2 := vnet.NewUpdateVNetDefaultSubnetParams().WithVnetID(vnetId).WithSubnetID(obj.Payload.ID)
-		_, err = r.Data.K.Vnet.UpdateVNetDefaultSubnet(params2, nil)
+		_, err = r.Data.K.VnetAPI.SetVNetDefaultSubnet(ctx, vnetId, *subnet.Id).Execute()
 		if err != nil {
 			errorCreateGeneric(resp, err)
 			return
 		}
 	}
 
-	data.ID = types.StringValue(obj.Payload.ID)
-	//subnetModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(subnet.Id)
+	//subnetModelToResource(vnet, data) // read back resulting object
 	tflog.Trace(ctx, "created subnet resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -223,14 +219,13 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := subnet.NewGetSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Subnet.GetSubnet(params, nil)
+	subnet, _, err := r.Data.K.SubnetAPI.ReadSubnet(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	subnetModelToResource(obj.Payload, data)
+	subnetModelToResource(subnet, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -252,9 +247,8 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := subnetResourceToModel(data)
-	params := subnet.NewUpdateSubnetParams().WithSubnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Subnet.UpdateSubnet(params, nil)
+	m := subnetResourceToModel(data)
+	_, _, err := r.Data.K.SubnetAPI.UpdateSubnet(ctx, data.ID.ValueString()).Subnet(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -281,11 +275,10 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := subnet.NewDeleteSubnetParams().WithSubnetID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Subnet.DeleteSubnet(params, nil)
+	_, err := r.Data.K.SubnetAPI.DeleteSubnet(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.SubnetID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/volume"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -98,24 +96,22 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 }
 
 // converts volume from Terraform model to Kowabunga API model
-func volumeResourceToModel(d *VolumeResourceModel) models.Volume {
-	size := d.Size.ValueInt64() * HelperGbToBytes
-	return models.Volume{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Type:        d.Type.ValueStringPointer(),
-		Size:        &size,
+func volumeResourceToModel(d *VolumeResourceModel) sdk.Volume {
+	return sdk.Volume{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
+		Type:        d.Type.ValueString(),
+		Size:        d.Size.ValueInt64() * HelperGbToBytes,
 		Resizable:   d.Resizable.ValueBoolPointer(),
 	}
 }
 
 // converts volume from Kowabunga API model to Terraform model
-func volumeModelToResource(r *models.Volume, d *VolumeResourceModel) {
-	size := *r.Size / HelperGbToBytes
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.Type = types.StringPointerValue(r.Type)
-	d.Size = types.Int64Value(size)
+func volumeModelToResource(r *sdk.Volume, d *VolumeResourceModel) {
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.Type = types.StringValue(r.Type)
+	d.Size = types.Int64Value(r.Size / HelperGbToBytes)
 	d.Resizable = types.BoolPointerValue(r.Resizable)
 }
 
@@ -138,39 +134,39 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	defer r.Data.Mutex.Unlock()
 
 	// find parent project
-	projectId, err := getProjectID(r.Data, data.Project.ValueString())
+	projectId, err := getProjectID(ctx, r.Data, data.Project.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent pool (optional)
-	poolId, _ := getPoolID(r.Data, data.Pool.ValueString())
+	poolId, _ := getPoolID(ctx, r.Data, data.Pool.ValueString())
 
 	// find parent template (optional)
-	templateId, _ := getTemplateID(r.Data, data.Template.ValueString())
+	templateId, _ := getTemplateID(ctx, r.Data, data.Template.ValueString())
 
 	// create a new volume
-	cfg := volumeResourceToModel(data)
-	params := project.NewCreateProjectZoneVolumeParams().WithProjectID(projectId).WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
+	m := volumeResourceToModel(data)
+	api := r.Data.K.ProjectAPI.CreateProjectZoneVolume(ctx, projectId, zoneId).Volume(m)
 	if poolId != "" {
-		params = params.WithPoolID(&poolId)
+		api.PoolId(poolId)
 	}
 	if templateId != "" {
-		params = params.WithTemplateID(&templateId)
+		api.TemplateId(templateId)
 	}
-	obj, err := r.Data.K.Project.CreateProjectZoneVolume(params, nil)
+	volume, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	volumeModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(volume.Id)
+	volumeModelToResource(volume, data) // read back resulting object
 	tflog.Trace(ctx, "created volume resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -193,14 +189,13 @@ func (r *VolumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := volume.NewGetVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Volume.GetVolume(params, nil)
+	volume, _, err := r.Data.K.VolumeAPI.ReadVolume(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	volumeModelToResource(obj.Payload, data)
+	volumeModelToResource(volume, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -220,9 +215,8 @@ func (r *VolumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := volumeResourceToModel(data)
-	params := volume.NewUpdateVolumeParams().WithVolumeID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Volume.UpdateVolume(params, nil)
+	m := volumeResourceToModel(data)
+	_, _, err := r.Data.K.VolumeAPI.UpdateVolume(ctx, data.ID.ValueString()).Volume(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -249,11 +243,10 @@ func (r *VolumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := volume.NewDeleteVolumeParams().WithVolumeID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Volume.DeleteVolume(params, nil)
+	_, err := r.Data.K.VolumeAPI.DeleteVolume(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.VolumeID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

@@ -14,16 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/host"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/nfs"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/pool"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/region"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/subnet"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/template"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
 )
 
 const (
@@ -234,23 +224,20 @@ func resourceConfigure(req resource.ConfigureRequest, resp *resource.ConfigureRe
 	return kd
 }
 
-func getRegionID(data *KowabungaProviderData, id string) (string, error) {
+func getRegionID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper region ID
-	p1 := region.NewGetRegionParams().WithRegionID(id)
-	r, err := data.K.Region.GetRegion(p1, nil)
+	region, _, err := data.K.RegionAPI.ReadRegion(ctx, id).Execute()
 	if err == nil {
-		return r.Payload.ID, nil
+		return *region.Id, nil
 	}
 
 	// fall back, it may be a region name then, finds its associated ID
-	p2 := region.NewGetAllRegionsParams()
-	regions, err := data.K.Region.GetAllRegions(p2, nil)
+	regions, _, err := data.K.RegionAPI.ListRegions(ctx).Execute()
 	if err == nil {
-		for _, rg := range regions.Payload {
-			p := region.NewGetRegionParams().WithRegionID(rg)
-			r, err := data.K.Region.GetRegion(p, nil)
-			if err == nil && *r.Payload.Name == id {
-				return r.Payload.ID, nil
+		for _, rg := range regions {
+			r, _, err := data.K.RegionAPI.ReadRegion(ctx, rg).Execute()
+			if err == nil && r.Name == id {
+				return *r.Id, nil
 			}
 		}
 	}
@@ -258,23 +245,20 @@ func getRegionID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownRegion)
 }
 
-func getZoneID(data *KowabungaProviderData, id string) (string, error) {
+func getZoneID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper zone ID
-	p1 := zone.NewGetZoneParams().WithZoneID(id)
-	z, err := data.K.Zone.GetZone(p1, nil)
+	zone, _, err := data.K.ZoneAPI.ReadZone(ctx, id).Execute()
 	if err == nil {
-		return z.Payload.ID, nil
+		return *zone.Id, nil
 	}
 
 	// fall back, it may be a zone name then, finds its associated ID
-	p2 := zone.NewGetAllZonesParams()
-	zones, err := data.K.Zone.GetAllZones(p2, nil)
+	zones, _, err := data.K.ZoneAPI.ListZones(ctx).Execute()
 	if err == nil {
-		for _, zn := range zones.Payload {
-			p := zone.NewGetZoneParams().WithZoneID(zn)
-			z, err := data.K.Zone.GetZone(p, nil)
-			if err == nil && *z.Payload.Name == id {
-				return z.Payload.ID, nil
+		for _, zn := range zones {
+			z, _, err := data.K.ZoneAPI.ReadZone(ctx, zn).Execute()
+			if err == nil && z.Name == id {
+				return *z.Id, nil
 			}
 		}
 	}
@@ -282,23 +266,20 @@ func getZoneID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownZone)
 }
 
-func getVNetID(data *KowabungaProviderData, id string) (string, error) {
+func getVNetID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper virtual network ID
-	p1 := vnet.NewGetVNetParams().WithVnetID(id)
-	v, err := data.K.Vnet.GetVNet(p1, nil)
+	vnet, _, err := data.K.VnetAPI.ReadVNet(ctx, id).Execute()
 	if err == nil {
-		return v.Payload.ID, nil
+		return *vnet.Id, nil
 	}
 
 	// fall back, it may be a virtual network name then, finds its associated ID
-	p2 := vnet.NewGetAllVNetsParams()
-	vnets, err := data.K.Vnet.GetAllVNets(p2, nil)
+	vnets, _, err := data.K.VnetAPI.ListVNets(ctx).Execute()
 	if err == nil {
-		for _, vn := range vnets.Payload {
-			p := vnet.NewGetVNetParams().WithVnetID(vn)
-			v, err := data.K.Vnet.GetVNet(p, nil)
-			if err == nil && *v.Payload.Name == id {
-				return v.Payload.ID, nil
+		for _, vn := range vnets {
+			v, _, err := data.K.VnetAPI.ReadVNet(ctx, vn).Execute()
+			if err == nil && v.Name == id {
+				return *v.Id, nil
 			}
 		}
 	}
@@ -306,23 +287,20 @@ func getVNetID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownVNet)
 }
 
-func getSubnetID(data *KowabungaProviderData, id string) (string, error) {
+func getSubnetID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper subnet ID
-	p1 := subnet.NewGetSubnetParams().WithSubnetID(id)
-	s, err := data.K.Subnet.GetSubnet(p1, nil)
+	subnet, _, err := data.K.SubnetAPI.ReadSubnet(ctx, id).Execute()
 	if err == nil {
-		return s.Payload.ID, nil
+		return *subnet.Id, nil
 	}
 
 	// fall back, it may be a subnet name then, finds its associated ID
-	p2 := subnet.NewGetAllSubnetsParams()
-	subnets, err := data.K.Subnet.GetAllSubnets(p2, nil)
+	subnets, _, err := data.K.SubnetAPI.ListSubnets(ctx).Execute()
 	if err == nil {
-		for _, sn := range subnets.Payload {
-			p := subnet.NewGetSubnetParams().WithSubnetID(sn)
-			s, err := data.K.Subnet.GetSubnet(p, nil)
-			if err == nil && *s.Payload.Name == id {
-				return s.Payload.ID, nil
+		for _, sn := range subnets {
+			s, _, err := data.K.SubnetAPI.ReadSubnet(ctx, sn).Execute()
+			if err == nil && s.Name == id {
+				return *s.Id, nil
 			}
 		}
 	}
@@ -330,23 +308,20 @@ func getSubnetID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownSubnet)
 }
 
-func getProjectID(data *KowabungaProviderData, id string) (string, error) {
+func getProjectID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper project ID
-	p1 := project.NewGetProjectParams().WithProjectID(id)
-	p, err := data.K.Project.GetProject(p1, nil)
+	project, _, err := data.K.ProjectAPI.ReadProject(ctx, id).Execute()
 	if err == nil {
-		return p.Payload.ID, nil
+		return *project.Id, nil
 	}
 
 	// fall back, it may be a project name then, finds its associated ID
-	p2 := project.NewGetAllProjectsParams()
-	projects, err := data.K.Project.GetAllProjects(p2, nil)
+	projects, _, err := data.K.ProjectAPI.ListProjects(ctx).Execute()
 	if err == nil {
-		for _, pn := range projects.Payload {
-			p := project.NewGetProjectParams().WithProjectID(pn)
-			prj, err := data.K.Project.GetProject(p, nil)
-			if err == nil && *prj.Payload.Name == id {
-				return prj.Payload.ID, nil
+		for _, pn := range projects {
+			prj, _, err := data.K.ProjectAPI.ReadProject(ctx, pn).Execute()
+			if err == nil && prj.Name == id {
+				return *prj.Id, nil
 			}
 		}
 	}
@@ -354,23 +329,20 @@ func getProjectID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownProject)
 }
 
-func getPoolID(data *KowabungaProviderData, id string) (string, error) {
+func getPoolID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper pool ID
-	p1 := pool.NewGetPoolParams().WithPoolID(id)
-	p, err := data.K.Pool.GetPool(p1, nil)
+	pool, _, err := data.K.PoolAPI.ReadStoragePool(ctx, id).Execute()
 	if err == nil {
-		return p.Payload.ID, nil
+		return *pool.Id, nil
 	}
 
 	// fall back, it may be a pool name then, finds its associated ID
-	p2 := pool.NewGetAllPoolsParams()
-	pools, err := data.K.Pool.GetAllPools(p2, nil)
+	pools, _, err := data.K.PoolAPI.ListStoragePools(ctx).Execute()
 	if err == nil {
-		for _, pn := range pools.Payload {
-			p := pool.NewGetPoolParams().WithPoolID(pn)
-			pl, err := data.K.Pool.GetPool(p, nil)
-			if err == nil && *pl.Payload.Name == id {
-				return pl.Payload.ID, nil
+		for _, pn := range pools {
+			pl, _, err := data.K.PoolAPI.ReadStoragePool(ctx, pn).Execute()
+			if err == nil && pl.Name == id {
+				return *pl.Id, nil
 			}
 		}
 	}
@@ -378,23 +350,20 @@ func getPoolID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownPool)
 }
 
-func getNfsID(data *KowabungaProviderData, id string) (string, error) {
+func getNfsID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper NFS storage ID
-	p1 := nfs.NewGetNfsStorageParams().WithNfsID(id)
-	p, err := data.K.Nfs.GetNfsStorage(p1, nil)
+	nfs, _, err := data.K.NfsAPI.ReadStorageNFS(ctx, id).Execute()
 	if err == nil {
-		return p.Payload.ID, nil
+		return *nfs.Id, nil
 	}
 
 	// fall back, it may be a NFS storage name then, finds its associated ID
-	p2 := nfs.NewGetAllNfsStoragesParams()
-	storages, err := data.K.Nfs.GetAllNfsStorages(p2, nil)
+	storages, _, err := data.K.NfsAPI.ListStorageNFSs(ctx).Execute()
 	if err == nil {
-		for _, s := range storages.Payload {
-			p := nfs.NewGetNfsStorageParams().WithNfsID(s)
-			ns, err := data.K.Nfs.GetNfsStorage(p, nil)
-			if err == nil && *ns.Payload.Name == id {
-				return ns.Payload.ID, nil
+		for _, s := range storages {
+			ns, _, err := data.K.NfsAPI.ReadStorageNFS(ctx, s).Execute()
+			if err == nil && ns.Name == id {
+				return *ns.Id, nil
 			}
 		}
 	}
@@ -402,23 +371,20 @@ func getNfsID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownNfs)
 }
 
-func getTemplateID(data *KowabungaProviderData, id string) (string, error) {
+func getTemplateID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper template ID
-	p1 := template.NewGetTemplateParams().WithTemplateID(id)
-	t, err := data.K.Template.GetTemplate(p1, nil)
+	template, _, err := data.K.TemplateAPI.ReadTemplate(ctx, id).Execute()
 	if err == nil {
-		return t.Payload.ID, nil
+		return *template.Id, nil
 	}
 
 	// fall back, it may be a template name then, finds its associated ID
-	p2 := template.NewGetAllTemplatesParams()
-	templates, err := data.K.Template.GetAllTemplates(p2, nil)
+	templates, _, err := data.K.TemplateAPI.ListTemplates(ctx).Execute()
 	if err == nil {
-		for _, tn := range templates.Payload {
-			p := template.NewGetTemplateParams().WithTemplateID(tn)
-			t, err := data.K.Template.GetTemplate(p, nil)
-			if err == nil && *t.Payload.Name == id {
-				return t.Payload.ID, nil
+		for _, tn := range templates {
+			t, _, err := data.K.TemplateAPI.ReadTemplate(ctx, tn).Execute()
+			if err == nil && t.Name == id {
+				return *t.Id, nil
 			}
 		}
 	}
@@ -426,23 +392,20 @@ func getTemplateID(data *KowabungaProviderData, id string) (string, error) {
 	return "", fmt.Errorf(ErrorUnknownTemplate)
 }
 
-func getHostID(data *KowabungaProviderData, id string) (string, error) {
+func getHostID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
 	// let's suppose param is a proper template ID
-	p1 := host.NewGetHostParams().WithHostID(id)
-	h, err := data.K.Host.GetHost(p1, nil)
+	host, _, err := data.K.HostAPI.ReadHost(ctx, id).Execute()
 	if err == nil {
-		return h.Payload.ID, nil
+		return *host.Id, nil
 	}
 
 	// fall back, it may be a host name then, finds its associated ID
-	p2 := host.NewGetAllHostsParams()
-	hosts, err := data.K.Host.GetAllHosts(p2, nil)
+	hosts, _, err := data.K.HostAPI.ListHosts(ctx).Execute()
 	if err == nil {
-		for _, hn := range hosts.Payload {
-			p := host.NewGetHostParams().WithHostID(hn)
-			h, err := data.K.Host.GetHost(p, nil)
-			if err == nil && *h.Payload.Name == id {
-				return h.Payload.ID, nil
+		for _, hn := range hosts {
+			h, _, err := data.K.HostAPI.ReadHost(ctx, hn).Execute()
+			if err == nil && h.Name == id {
+				return *h.Id, nil
 			}
 		}
 	}

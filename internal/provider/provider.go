@@ -6,10 +6,7 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client"
-	"github.com/go-openapi/runtime"
-	httptransport "github.com/go-openapi/runtime/client"
-	"github.com/go-openapi/strfmt"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -31,7 +28,7 @@ type KowabungaProviderModel struct {
 }
 
 type KowabungaProviderData struct {
-	K     *client.Kowabunga
+	K     *sdk.APIClient
 	Mutex *sync.Mutex
 	Cond  *sync.Cond
 }
@@ -74,7 +71,7 @@ func (p *KowabungaProvider) Schema(ctx context.Context, req provider.SchemaReque
 	}
 }
 
-func newKowabungaClient(uri, token string) (*client.Kowabunga, error) {
+func newKowabungaClient(uri, token string) (*sdk.APIClient, error) {
 	if uri == "" || token == "" {
 		return nil, fmt.Errorf("The Kowabunga provider needs proper initialization parameters")
 	}
@@ -84,16 +81,13 @@ func newKowabungaClient(uri, token string) (*client.Kowabunga, error) {
 		return nil, err
 	}
 
-	r := httptransport.New(u.Host, client.DefaultBasePath, []string{u.Scheme})
-	r.SetDebug(false)
-	r.Consumers[MimeJSON] = runtime.JSONConsumer()
-	r.Producers[MimeJSON] = runtime.JSONProducer()
-	auths := []runtime.ClientAuthInfoWriter{
-		httptransport.APIKeyAuth("x-token", "header", token),
-	}
-	r.DefaultAuthentication = httptransport.Compose(auths...)
+	cfg := sdk.NewConfiguration()
+	cfg.Host = u.Host
+	cfg.Scheme = u.Scheme
+	cfg.Debug = true
+	cfg.AddDefaultHeader("X-API-Key", token)
 
-	return client.New(r, strfmt.Default), nil
+	return sdk.NewAPIClient(cfg), nil
 }
 
 func (p *KowabungaProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {

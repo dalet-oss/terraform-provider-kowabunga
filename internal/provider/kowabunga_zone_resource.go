@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/region"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -65,21 +63,21 @@ func (r *ZoneResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 }
 
 // converts zone from Terraform model to Kowabunga API model
-func zoneResourceToModel(d *ZoneResourceModel) models.Zone {
-	return models.Zone{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
+func zoneResourceToModel(d *ZoneResourceModel) sdk.Zone {
+	return sdk.Zone{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
 	}
 }
 
 // converts zone from Kowabunga API model to Terraform model
-func zoneModelToResource(r *models.Zone, d *ZoneResourceModel) {
+func zoneModelToResource(r *sdk.Zone, d *ZoneResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
 }
 
 func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -101,21 +99,20 @@ func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, r
 	defer r.Data.Mutex.Unlock()
 
 	// find parent region
-	regionId, err := getRegionID(r.Data, data.Region.ValueString())
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new zone
-	cfg := zoneResourceToModel(data)
-	params := region.NewCreateZoneParams().WithRegionID(regionId).WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Region.CreateZone(params, nil)
+	m := zoneResourceToModel(data)
+	zone, _, err := r.Data.K.RegionAPI.CreateZone(ctx, regionId).Zone(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	zoneModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(zone.Id)
+	zoneModelToResource(zone, data) // read back resulting object
 	tflog.Trace(ctx, "created zone resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -138,14 +135,13 @@ func (r *ZoneResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := zone.NewGetZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Zone.GetZone(params, nil)
+	zone, _, err := r.Data.K.ZoneAPI.ReadZone(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	zoneModelToResource(obj.Payload, data)
+	zoneModelToResource(zone, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -166,9 +162,8 @@ func (r *ZoneResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := zoneResourceToModel(data)
-	params := zone.NewUpdateZoneParams().WithZoneID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Zone.UpdateZone(params, nil)
+	m := zoneResourceToModel(data)
+	_, _, err := r.Data.K.ZoneAPI.UpdateZone(ctx, data.ID.ValueString()).Zone(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -195,11 +190,10 @@ func (r *ZoneResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := zone.NewDeleteZoneParams().WithZoneID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Zone.DeleteZone(params, nil)
+	_, err := r.Data.K.ZoneAPI.DeleteZone(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.ZoneID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

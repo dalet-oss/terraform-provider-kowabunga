@@ -3,9 +3,7 @@ package provider
 import (
 	"context"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/kgw"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -127,8 +125,8 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 }
 
 // converts kgw from Terraform model to Kowabunga API model
-func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) models.KGW {
-	natsModel := []*models.KGWNat{}
+func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) sdk.KGW {
+	natsModel := []sdk.KGWNat{}
 
 	nats := make([]types.Object, 0, len(d.Nats.Elements()))
 
@@ -151,28 +149,28 @@ func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) models.KGW {
 				tflog.Error(*ctx, err.Detail())
 			}
 		}
-		natsModel = append(natsModel, &models.KGWNat{
-			PrivateIP: natRule.PrivateIp.ValueStringPointer(),
-			PublicIP:  natRule.PublicIp.ValueString(),
+		natsModel = append(natsModel, sdk.KGWNat{
+			PrivateIp: natRule.PrivateIp.ValueString(),
+			PublicIp:  natRule.PublicIp.ValueStringPointer(),
 			Ports:     natRule.Ports.ValueStringPointer(),
 		})
 	}
-	return models.KGW{
-		Description: d.Desc.ValueString(),
-		PublicIP:    d.PublicIp.ValueString(),
-		PrivateIP:   d.PrivateIp.ValueString(),
+	return sdk.KGW{
+		Description: d.Desc.ValueStringPointer(),
+		PublicIp:    d.PublicIp.ValueStringPointer(),
+		PrivateIp:   d.PrivateIp.ValueStringPointer(),
 		Nats:        natsModel,
 	}
 }
 
 // converts kgw from Kowabunga API model to Terraform model
-func kgwModelToResource(ctx *context.Context, r *models.KGW, d *KgwResourceModel) {
+func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	if r == nil {
 		return
 	}
-	d.Desc = types.StringValue(r.Description)
-	d.PublicIp = types.StringValue(r.PublicIP)
-	d.PrivateIp = types.StringValue(r.PrivateIP)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.PublicIp = types.StringPointerValue(r.PublicIp)
+	d.PrivateIp = types.StringPointerValue(r.PrivateIp)
 
 	nats := []attr.Value{}
 	natType := map[string]attr.Type{
@@ -182,8 +180,8 @@ func kgwModelToResource(ctx *context.Context, r *models.KGW, d *KgwResourceModel
 	}
 	for _, nat := range r.Nats {
 		a := map[string]attr.Value{
-			KeyPrivateIp: types.StringPointerValue(nat.PrivateIP),
-			KeyPublicIp:  types.StringValue(nat.PublicIP),
+			KeyPrivateIp: types.StringValue(nat.PrivateIp),
+			KeyPublicIp:  types.StringPointerValue(nat.PublicIp),
 			KeyPorts:     types.StringPointerValue(nat.Ports),
 		}
 		object, _ := types.ObjectValue(natType, a)
@@ -217,32 +215,27 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	defer r.Data.Mutex.Unlock()
 
 	// find parent project
-	projectId, err := getProjectID(r.Data, data.Project.ValueString())
+	projectId, err := getProjectID(ctx, r.Data, data.Project.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	cfg := kgwResourceToModel(&ctx, data)
+	m := kgwResourceToModel(&ctx, data)
 
 	// create a new KGW
-	params := project.NewCreateProjectZoneKgwParams().
-		WithProjectID(projectId).WithZoneID(zoneId).
-		WithBody(&cfg).WithTimeout(timeout)
-
-	obj, err := r.Data.K.Project.CreateProjectZoneKgw(params, nil)
-
+	kgw, _, err := r.Data.K.ProjectAPI.CreateProjectZoneKGW(ctx, projectId, zoneId).KGW(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	kgwModelToResource(&ctx, obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(kgw.Id)
+	kgwModelToResource(&ctx, kgw, data) // read back resulting object
 	tflog.Trace(ctx, "created KGW resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -265,14 +258,13 @@ func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kgw.NewGetKgwParams().WithKgwID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Kgw.GetKgw(params, nil)
+	kgw, _, err := r.Data.K.KgwAPI.ReadKGW(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	kgwModelToResource(&ctx, obj.Payload, data)
+	kgwModelToResource(&ctx, kgw, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -294,9 +286,8 @@ func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := kgwResourceToModel(&ctx, data)
-	params := kgw.NewUpdateKGWParams().WithKgwID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Kgw.UpdateKGW(params, nil)
+	m := kgwResourceToModel(&ctx, data)
+	_, _, err := r.Data.K.KgwAPI.UpdateKGW(ctx, data.ID.ValueString()).KGW(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -323,11 +314,10 @@ func (r *KgwResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := kgw.NewDeleteKGWParams().WithKgwID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Kgw.DeleteKGW(params, nil)
+	_, err := r.Data.K.KgwAPI.DeleteKGW(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.KgwID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

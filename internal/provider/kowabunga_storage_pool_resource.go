@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/pool"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -19,7 +17,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -140,40 +137,38 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 }
 
 // converts storage pool from Terraform model to Kowabunga API model
-func storagePoolResourceToModel(d *StoragePoolResourceModel) models.StoragePool {
-	cost := models.Cost{
-		Price:    d.Price.ValueInt64Pointer(),
-		Currency: d.Currency.ValueStringPointer(),
+func storagePoolResourceToModel(d *StoragePoolResourceModel) sdk.StoragePool {
+	cost := sdk.Cost{
+		Price:    float32(d.Price.ValueInt64()),
+		Currency: d.Currency.ValueString(),
 	}
-	return models.StoragePool{
-		Name:           d.Name.ValueStringPointer(),
-		Description:    d.Desc.ValueString(),
+	return sdk.StoragePool{
+		Name:           d.Name.ValueString(),
+		Description:    d.Desc.ValueStringPointer(),
 		Type:           d.Type.ValueStringPointer(),
-		Pool:           d.Pool.ValueStringPointer(),
+		Pool:           d.Pool.ValueString(),
 		CephAddress:    d.Address.ValueStringPointer(),
 		CephPort:       d.Port.ValueInt64Pointer(),
-		CephSecretUUID: d.Secret.ValueString(),
-		Cost:           &cost,
+		CephSecretUuid: d.Secret.ValueStringPointer(),
+		Cost:           cost,
 	}
 }
 
 // converts storage pool from Kowabunga API model to Terraform model
-func storagePoolModelToResource(r *models.StoragePool, d *StoragePoolResourceModel) {
+func storagePoolModelToResource(r *sdk.StoragePool, d *StoragePoolResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
 	d.Type = types.StringPointerValue(r.Type)
-	d.Pool = types.StringPointerValue(r.Pool)
+	d.Pool = types.StringValue(r.Pool)
 	d.Address = types.StringPointerValue(r.CephAddress)
 	d.Port = types.Int64PointerValue(r.CephPort)
-	d.Secret = types.StringValue(r.CephSecretUUID)
-	if r.Cost != nil {
-		d.Price = types.Int64PointerValue(r.Cost.Price)
-		d.Currency = types.StringPointerValue(r.Cost.Currency)
-	}
+	d.Secret = types.StringPointerValue(r.CephSecretUuid)
+	d.Price = types.Int64Value(int64(r.Cost.Price))
+	d.Currency = types.StringValue(r.Cost.Currency)
 }
 
 func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -195,37 +190,36 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 	defer r.Data.Mutex.Unlock()
 
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// find parent template (optional)
-	hostId, _ := getHostID(r.Data, data.Host.ValueString())
+	hostId, _ := getHostID(ctx, r.Data, data.Host.ValueString())
 
 	// create a new storage pool
-	cfg := storagePoolResourceToModel(data)
-	params := zone.NewCreatePoolParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
+	m := storagePoolResourceToModel(data)
+	api := r.Data.K.ZoneAPI.CreateStoragePool(ctx, zoneId).StoragePool(m)
 	if hostId != "" {
-		params = params.WithHostID(&hostId)
+		api.HostId(hostId)
 	}
-	obj, err := r.Data.K.Zone.CreatePool(params, nil)
+	pool, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// set storage pool as default
 	if data.Default.ValueBool() {
-		params2 := zone.NewUpdateZoneDefaultPoolParams().WithZoneID(zoneId).WithPoolID(obj.Payload.ID)
-		_, err = r.Data.K.Zone.UpdateZoneDefaultPool(params2, nil)
+		_, err = r.Data.K.ZoneAPI.SetZoneDefaultStoragePool(ctx, zoneId, *pool.Id).Execute()
 		if err != nil {
 			errorCreateGeneric(resp, err)
 			return
 		}
 	}
 
-	data.ID = types.StringValue(obj.Payload.ID)
-	storagePoolModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(pool.Id)
+	storagePoolModelToResource(pool, data) // read back resulting object
 	tflog.Trace(ctx, "created storage pool resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -248,14 +242,13 @@ func (r *StoragePoolResource) Read(ctx context.Context, req resource.ReadRequest
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := pool.NewGetPoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Pool.GetPool(params, nil)
+	pool, _, err := r.Data.K.PoolAPI.ReadStoragePool(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	storagePoolModelToResource(obj.Payload, data)
+	storagePoolModelToResource(pool, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -277,9 +270,8 @@ func (r *StoragePoolResource) Update(ctx context.Context, req resource.UpdateReq
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := storagePoolResourceToModel(data)
-	params := pool.NewUpdatePoolParams().WithPoolID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Pool.UpdatePool(params, nil)
+	m := storagePoolResourceToModel(data)
+	_, _, err := r.Data.K.PoolAPI.UpdateStoragePool(ctx, data.ID.ValueString()).StoragePool(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -306,11 +298,10 @@ func (r *StoragePoolResource) Delete(ctx context.Context, req resource.DeleteReq
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := pool.NewDeletePoolParams().WithPoolID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Pool.DeletePool(params, nil)
+	_, err := r.Data.K.PoolAPI.DeleteStoragePool(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.PoolID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

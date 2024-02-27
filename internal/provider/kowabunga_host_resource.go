@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/host"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -162,63 +160,49 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 }
 
 // converts host from Terraform model to Kowabunga API model
-func hostResourceToModel(d *HostResourceModel) models.Host {
-	cpu_cost := models.Cost{
-		Price:    d.CpuPrice.ValueInt64Pointer(),
-		Currency: d.Currency.ValueStringPointer(),
-	}
-	memory_cost := models.Cost{
-		Price:    d.MemoryPrice.ValueInt64Pointer(),
-		Currency: d.Currency.ValueStringPointer(),
-	}
-	hc := models.Host{
-		Name:                  d.Name.ValueStringPointer(),
-		Description:           d.Desc.ValueString(),
-		Protocol:              d.Protocol.ValueStringPointer(),
-		Address:               d.Address.ValueStringPointer(),
-		Port:                  d.Port.ValueInt64(),
-		CPUCost:               &cpu_cost,
-		MemoryCost:            &memory_cost,
-		OvercommitCPURatio:    d.CpuOvercommit.ValueInt64Pointer(),
+func hostResourceToModel(d *HostResourceModel) sdk.Host {
+	return sdk.Host{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
+		Protocol:    d.Protocol.ValueString(),
+		Address:     d.Address.ValueString(),
+		Port:        d.Port.ValueInt64Pointer(),
+		Tls: sdk.HostTLS{
+			Key:  d.TlsKey.ValueString(),
+			Cert: d.TlsCert.ValueString(),
+			Ca:   d.TlsCA.ValueString(),
+		},
+		CpuCost: sdk.Cost{
+			Price:    float32(d.CpuPrice.ValueInt64()),
+			Currency: d.Currency.ValueString(),
+		},
+		MemoryCost: sdk.Cost{
+			Price:    float32(d.MemoryPrice.ValueInt64()),
+			Currency: d.Currency.ValueString(),
+		},
+		OvercommitCpuRatio:    d.CpuOvercommit.ValueInt64Pointer(),
 		OvercommitMemoryRatio: d.MemoryOvercommit.ValueInt64Pointer(),
 	}
-
-	if *hc.Protocol == models.HostProtocolTLS {
-		tls := models.HostTLS{
-			Key:  d.TlsKey.ValueStringPointer(),
-			Cert: d.TlsCert.ValueStringPointer(),
-			Ca:   d.TlsCA.ValueStringPointer(),
-		}
-		hc.TLS = &tls
-	}
-
-	return hc
 }
 
 // converts host from Kowabunga API model to Terraform model
-func hostModelToResource(r *models.Host, d *HostResourceModel) {
+func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.Protocol = types.StringPointerValue(r.Protocol)
-	d.Address = types.StringPointerValue(r.Address)
-	d.Port = types.Int64Value(r.Port)
-	if r.CPUCost != nil {
-		d.CpuPrice = types.Int64PointerValue(r.CPUCost.Price)
-		d.Currency = types.StringPointerValue(r.CPUCost.Currency)
-	}
-	if r.MemoryCost != nil {
-		d.MemoryPrice = types.Int64PointerValue(r.MemoryCost.Price)
-	}
-	if r.TLS != nil {
-		d.TlsKey = types.StringPointerValue(r.TLS.Key)
-		d.TlsCert = types.StringPointerValue(r.TLS.Cert)
-		d.TlsCA = types.StringPointerValue(r.TLS.Ca)
-	}
-	d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCPURatio)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.Protocol = types.StringValue(r.Protocol)
+	d.Address = types.StringValue(r.Address)
+	d.Port = types.Int64PointerValue(r.Port)
+	d.CpuPrice = types.Int64Value(int64(r.CpuCost.Price))
+	d.Currency = types.StringValue(r.CpuCost.Currency)
+	d.MemoryPrice = types.Int64Value(int64(r.MemoryCost.Price))
+	d.TlsKey = types.StringValue(r.Tls.Key)
+	d.TlsCert = types.StringValue(r.Tls.Cert)
+	d.TlsCA = types.StringValue(r.Tls.Ca)
+	d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCpuRatio)
 	d.MemoryOvercommit = types.Int64PointerValue(r.OvercommitMemoryRatio)
 }
 
@@ -241,21 +225,20 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 	defer r.Data.Mutex.Unlock()
 
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new host
-	cfg := hostResourceToModel(data)
-	params := zone.NewCreateHostParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Zone.CreateHost(params, nil)
+	m := hostResourceToModel(data)
+	host, _, err := r.Data.K.ZoneAPI.CreateHost(ctx, zoneId).Host(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	hostModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(host.Id)
+	hostModelToResource(host, data) // read back resulting object
 	tflog.Trace(ctx, "created host resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -278,14 +261,13 @@ func (r *HostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := host.NewGetHostParams().WithHostID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Host.GetHost(params, nil)
+	host, _, err := r.Data.K.HostAPI.ReadHost(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	hostModelToResource(obj.Payload, data)
+	hostModelToResource(host, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -307,9 +289,8 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := hostResourceToModel(data)
-	params := host.NewUpdateHostParams().WithHostID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Host.UpdateHost(params, nil)
+	m := hostResourceToModel(data)
+	_, _, err := r.Data.K.HostAPI.UpdateHost(ctx, data.ID.ValueString()).Host(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -334,11 +315,10 @@ func (r *HostResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := host.NewDeleteHostParams().WithHostID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Host.DeleteHost(params, nil)
+	_, err := r.Data.K.HostAPI.DeleteHost(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.HostID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

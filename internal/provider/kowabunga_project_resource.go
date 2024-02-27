@@ -5,8 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/project"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -173,55 +172,60 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 }
 
 // converts project from Terraform model to Kowabunga API model
-func projectResourceToModel(d *ProjectResourceModel) models.Project {
+func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 	tags := []string{}
 	d.Tags.ElementsAs(context.TODO(), &tags, false)
 	metas := map[string]string{}
 	d.Metadatas.ElementsAs(context.TODO(), &metas, false)
-	metadatas := []*models.Metadata{}
+	metadatas := []sdk.Metadata{}
 	for k, v := range metas {
-		m := models.Metadata{
-			Key:   k,
-			Value: v,
+		m := sdk.Metadata{
+			Key:   &k,
+			Value: &v,
 		}
-		metadatas = append(metadatas, &m)
-	}
-	quotas := models.ProjectResources{
-		Instances: uint16(d.MaxInstances.ValueInt64()),
-		Memory:    uint64(d.MaxMemory.ValueInt64()) * HelperGbToBytes,
-		Storage:   uint64(d.MaxStorage.ValueInt64()) * HelperGbToBytes,
-		Vcpus:     uint16(d.MaxVCPUs.ValueInt64()),
+		metadatas = append(metadatas, m)
 	}
 
-	return models.Project{
-		Name:            d.Name.ValueStringPointer(),
-		Description:     d.Desc.ValueString(),
-		Owner:           d.Owner.ValueStringPointer(),
-		Email:           d.Email.ValueStringPointer(),
-		Domain:          d.Domain.ValueString(),
-		RootPassword:    d.RootPassword.ValueString(),
-		BootstrapUser:   d.User.ValueString(),
-		BootstrapPubkey: d.Pubkey.ValueString(),
+	instances := int32(d.MaxInstances.ValueInt64())
+	memory := int64(d.MaxMemory.ValueInt64()) * HelperGbToBytes
+	storage := int64(d.MaxStorage.ValueInt64()) * HelperGbToBytes
+	vcpus := int32(d.MaxVCPUs.ValueInt64())
+	quotas := sdk.ProjectResources{
+		Instances: &instances,
+		Memory:    &memory,
+		Storage:   &storage,
+		Vcpus:     &vcpus,
+	}
+
+	return sdk.Project{
+		Name:            d.Name.ValueString(),
+		Description:     d.Desc.ValueStringPointer(),
+		Owner:           d.Owner.ValueString(),
+		Email:           d.Email.ValueString(),
+		Domain:          d.Domain.ValueStringPointer(),
+		RootPassword:    d.RootPassword.ValueStringPointer(),
+		BootstrapUser:   d.User.ValueStringPointer(),
+		BootstrapPubkey: d.Pubkey.ValueStringPointer(),
 		Tags:            tags,
 		Metadatas:       metadatas,
-		Quotas:          &quotas,
+		Quotas:          quotas,
 	}
 }
 
 // converts project from Kowabunga API model to Terraform model
-func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
+func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.Owner = types.StringPointerValue(r.Owner)
-	d.Email = types.StringPointerValue(r.Email)
-	d.Domain = types.StringValue(r.Domain)
-	d.RootPassword = types.StringValue(r.RootPassword)
-	d.User = types.StringValue(r.BootstrapUser)
-	d.Pubkey = types.StringValue(r.BootstrapPubkey)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.Owner = types.StringValue(r.Owner)
+	d.Email = types.StringValue(r.Email)
+	d.Domain = types.StringPointerValue(r.Domain)
+	d.RootPassword = types.StringPointerValue(r.RootPassword)
+	d.User = types.StringPointerValue(r.BootstrapUser)
+	d.Pubkey = types.StringPointerValue(r.BootstrapPubkey)
 	tags := []attr.Value{}
 	for _, t := range r.Tags {
 		tags = append(tags, types.StringValue(t))
@@ -229,19 +233,17 @@ func projectModelToResource(r *models.Project, d *ProjectResourceModel) {
 	d.Tags, _ = types.ListValue(types.StringType, tags)
 	metadatas := map[string]attr.Value{}
 	for _, m := range r.Metadatas {
-		metadatas[m.Key] = types.StringValue(m.Value)
+		metadatas[*m.Key] = types.StringPointerValue(m.Value)
 	}
 	d.Metadatas = basetypes.NewMapValueMust(types.StringType, metadatas)
-	if r.Quotas != nil {
-		quotas := *r.Quotas
-		d.MaxInstances = types.Int64Value(int64(quotas.Instances))
-		d.MaxMemory = types.Int64Value(int64(quotas.Memory) / HelperGbToBytes)
-		d.MaxStorage = types.Int64Value(int64(quotas.Storage) / HelperGbToBytes)
-		d.MaxVCPUs = types.Int64Value(int64(quotas.Vcpus))
-	}
+	d.MaxInstances = types.Int64Value(int64(*r.Quotas.Instances))
+	d.MaxMemory = types.Int64Value(int64(*r.Quotas.Memory) / HelperGbToBytes)
+	d.MaxStorage = types.Int64Value(int64(*r.Quotas.Storage) / HelperGbToBytes)
+	d.MaxVCPUs = types.Int64Value(int64(*r.Quotas.Vcpus))
+
 	privateSubnets := map[string]attr.Value{}
 	for _, p := range r.PrivateSubnets {
-		privateSubnets[p.Key] = types.StringValue(p.Value)
+		privateSubnets[*p.Key] = types.StringPointerValue(p.Value)
 	}
 	d.PrivateSubnets = basetypes.NewMapValueMust(types.StringType, privateSubnets)
 }
@@ -265,15 +267,14 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 	defer r.Data.Mutex.Unlock()
 
 	// create a new project
-	cfg := projectResourceToModel(data)
-	params := project.NewCreateProjectParams().WithSubnetSize(data.SubnetSize.ValueInt64Pointer()).WithNotify(data.Notify.ValueBoolPointer()).WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Project.CreateProject(params, nil)
+	m := projectResourceToModel(data)
+	project, _, err := r.Data.K.ProjectAPI.CreateProject(ctx).Project(m).SubnetSize(int32(data.SubnetSize.ValueInt64())).Notify(data.Notify.ValueBool()).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	projectModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(project.Id)
+	projectModelToResource(project, data) // read back resulting object
 
 	tflog.Trace(ctx, "created project resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -297,14 +298,13 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := project.NewGetProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Project.GetProject(params, nil)
+	project, _, err := r.Data.K.ProjectAPI.ReadProject(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	projectModelToResource(obj.Payload, data)
+	projectModelToResource(project, data)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -327,9 +327,8 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := projectResourceToModel(data)
-	params := project.NewUpdateProjectParams().WithProjectID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Project.UpdateProject(params, nil)
+	m := projectResourceToModel(data)
+	_, _, err := r.Data.K.ProjectAPI.UpdateProject(ctx, data.ID.ValueString()).Project(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -356,11 +355,10 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := project.NewDeleteProjectParams().WithProjectID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Project.DeleteProject(params, nil)
+	_, err := r.Data.K.ProjectAPI.DeleteProject(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.ProjectID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }

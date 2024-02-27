@@ -5,9 +5,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/vnet"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/client/zone"
-	"github.com/dalet-oss/kowabunga-api/sdk/go/models"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -89,26 +87,26 @@ func (r *VNetResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 }
 
 // converts virtual network from Terraform model to Kowabunga API model
-func vnetResourceToModel(d *VNetResourceModel) models.VNet {
-	return models.VNet{
-		Name:        d.Name.ValueStringPointer(),
-		Description: d.Desc.ValueString(),
-		Vlan:        d.VLAN.ValueInt64Pointer(),
-		Interface:   d.Interface.ValueStringPointer(),
+func vnetResourceToModel(d *VNetResourceModel) sdk.VNet {
+	return sdk.VNet{
+		Name:        d.Name.ValueString(),
+		Description: d.Desc.ValueStringPointer(),
+		Vlan:        d.VLAN.ValueInt64(),
+		Interface:   d.Interface.ValueString(),
 		Private:     d.Private.ValueBoolPointer(),
 	}
 }
 
 // converts virtual network from Kowabunga API model to Terraform model
-func vnetModelToResource(r *models.VNet, d *VNetResourceModel) {
+func vnetModelToResource(r *sdk.VNet, d *VNetResourceModel) {
 	if r == nil {
 		return
 	}
 
-	d.Name = types.StringPointerValue(r.Name)
-	d.Desc = types.StringValue(r.Description)
-	d.VLAN = types.Int64PointerValue(r.Vlan)
-	d.Interface = types.StringPointerValue(r.Interface)
+	d.Name = types.StringValue(r.Name)
+	d.Desc = types.StringPointerValue(r.Description)
+	d.VLAN = types.Int64Value(r.Vlan)
+	d.Interface = types.StringValue(r.Interface)
 	d.Private = types.BoolPointerValue(r.Private)
 }
 
@@ -131,21 +129,20 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 	defer r.Data.Mutex.Unlock()
 
 	// find parent zone
-	zoneId, err := getZoneID(r.Data, data.Zone.ValueString())
+	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new virtual network
-	cfg := vnetResourceToModel(data)
-	params := zone.NewCreateVNetParams().WithZoneID(zoneId).WithBody(&cfg).WithTimeout(timeout)
-	obj, err := r.Data.K.Zone.CreateVNet(params, nil)
+	m := vnetResourceToModel(data)
+	vnet, _, err := r.Data.K.ZoneAPI.CreateVNet(ctx, zoneId).VNet(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringValue(obj.Payload.ID)
-	vnetModelToResource(obj.Payload, data) // read back resulting object
+	data.ID = types.StringPointerValue(vnet.Id)
+	vnetModelToResource(vnet, data) // read back resulting object
 	tflog.Trace(ctx, "created vnet resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -168,14 +165,13 @@ func (r *VNetResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := vnet.NewGetVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(timeout)
-	obj, err := r.Data.K.Vnet.GetVNet(params, nil)
+	vnet, _, err := r.Data.K.VnetAPI.ReadVNet(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	vnetModelToResource(obj.Payload, data)
+	vnetModelToResource(vnet, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -197,9 +193,8 @@ func (r *VNetResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	cfg := vnetResourceToModel(data)
-	params := vnet.NewUpdateVNetParams().WithVnetID(data.ID.ValueString()).WithBody(&cfg).WithTimeout(timeout)
-	_, err := r.Data.K.Vnet.UpdateVNet(params, nil)
+	m := vnetResourceToModel(data)
+	_, _, err := r.Data.K.VnetAPI.UpdateVNet(ctx, data.ID.ValueString()).VNet(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -226,11 +221,10 @@ func (r *VNetResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	params := vnet.NewDeleteVNetParams().WithVnetID(data.ID.ValueString()).WithTimeout(timeout)
-	_, err := r.Data.K.Vnet.DeleteVNet(params, nil)
+	_, err := r.Data.K.VnetAPI.DeleteVNet(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return
 	}
-	tflog.Trace(ctx, "Deleted "+params.VnetID)
+	tflog.Trace(ctx, "Deleted "+data.ID.ValueString())
 }
