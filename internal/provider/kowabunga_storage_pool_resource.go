@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -52,6 +53,7 @@ type StoragePoolResourceModel struct {
 	Price    types.Int64    `tfsdk:"price"`
 	Currency types.String   `tfsdk:"currency"`
 	Default  types.Bool     `tfsdk:"default"`
+	Agents   types.List     `tfsdk:"agents"`
 }
 
 func (r *StoragePoolResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -131,6 +133,11 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),
 			},
+			KeyAgents: schema.ListAttribute{
+				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the storage pool",
+				ElementType:         types.StringType,
+				Required:            true,
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
@@ -142,6 +149,10 @@ func storagePoolResourceToModel(d *StoragePoolResourceModel) sdk.StoragePool {
 		Price:    float32(d.Price.ValueInt64()),
 		Currency: d.Currency.ValueString(),
 	}
+
+	agents := []string{}
+	d.Agents.ElementsAs(context.TODO(), &agents, false)
+
 	return sdk.StoragePool{
 		Name:           d.Name.ValueString(),
 		Description:    d.Desc.ValueStringPointer(),
@@ -151,6 +162,7 @@ func storagePoolResourceToModel(d *StoragePoolResourceModel) sdk.StoragePool {
 		CephPort:       d.Port.ValueInt64Pointer(),
 		CephSecretUuid: d.Secret.ValueStringPointer(),
 		Cost:           cost,
+		Agents:         agents,
 	}
 }
 
@@ -169,6 +181,11 @@ func storagePoolModelToResource(r *sdk.StoragePool, d *StoragePoolResourceModel)
 	d.Secret = types.StringPointerValue(r.CephSecretUuid)
 	d.Price = types.Int64Value(int64(r.Cost.Price))
 	d.Currency = types.StringValue(r.Cost.Currency)
+	agents := []attr.Value{}
+	for _, a := range r.Agents {
+		agents = append(agents, types.StringValue(a))
+	}
+	d.Agents, _ = types.ListValue(types.StringType, agents)
 }
 
 func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
@@ -53,6 +54,7 @@ type HostResourceModel struct {
 	Currency         types.String   `tfsdk:"currency"`
 	CpuOvercommit    types.Int64    `tfsdk:"cpu_overcommit"`
 	MemoryOvercommit types.Int64    `tfsdk:"memory_overcommit"`
+	Agents           types.List     `tfsdk:"agents"`
 }
 
 func (r *HostResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -154,6 +156,11 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 				Default:             int64default.StaticInt64(2),
 			},
+			KeyAgents: schema.ListAttribute{
+				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the host",
+				ElementType:         types.StringType,
+				Required:            true,
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
@@ -161,6 +168,9 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 
 // converts host from Terraform model to Kowabunga API model
 func hostResourceToModel(d *HostResourceModel) sdk.Host {
+	agents := []string{}
+	d.Agents.ElementsAs(context.TODO(), &agents, false)
+
 	return sdk.Host{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
@@ -182,6 +192,7 @@ func hostResourceToModel(d *HostResourceModel) sdk.Host {
 		},
 		OvercommitCpuRatio:    d.CpuOvercommit.ValueInt64Pointer(),
 		OvercommitMemoryRatio: d.MemoryOvercommit.ValueInt64Pointer(),
+		Agents:                agents,
 	}
 }
 
@@ -204,6 +215,11 @@ func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
 	d.TlsCA = types.StringValue(r.Tls.Ca)
 	d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCpuRatio)
 	d.MemoryOvercommit = types.Int64PointerValue(r.OvercommitMemoryRatio)
+	agents := []attr.Value{}
+	for _, a := range r.Agents {
+		agents = append(agents, types.StringValue(a))
+	}
+	d.Agents, _ = types.ListValue(types.StringType, agents)
 }
 
 func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

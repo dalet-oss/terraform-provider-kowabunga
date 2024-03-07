@@ -97,6 +97,7 @@ const (
 	KeyBackends         = "backends"
 	KeyNfs              = "nfs"
 	KeyAccessType       = "access_type"
+	KeyAgents           = "agents"
 )
 
 const (
