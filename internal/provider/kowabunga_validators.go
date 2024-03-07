@@ -3,11 +3,43 @@ package provider
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
+
+const (
+	AgentTypeDesc = "Kowabunga remote agent type must be one of the following: "
+)
+
+// Kowabunga Agent Type Validator
+type stringAgentTypeValidator struct{}
+
+func (v stringAgentTypeValidator) Description(ctx context.Context) string {
+	return AgentTypeDesc + strings.Join(agentSupportedTypes, ", ")
+}
+
+func (v stringAgentTypeValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v stringAgentTypeValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
+		return
+	}
+
+	if !slices.Contains(agentSupportedTypes, req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Unsupported agent type",
+			fmt.Sprintf("Unsupported agent type %s: ", req.ConfigValue.ValueString()),
+		)
+		return
+	}
+}
 
 // Custom Port Validator
 type stringPortValidator struct{}
