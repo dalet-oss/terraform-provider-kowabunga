@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	StorageNfsResourceName          = "storage_nfs"
-	StorageNfsDefaultFs             = "nfs"
-	StorageNfsGaneshaApiPortDefault = 54934
+	StorageNfsResourceName                      = "storage_nfs"
+	StorageNfsDefaultValueFs                    = "nfs"
+	StorageNfsDefaultValueGaneshaApiPortDefault = 54934
+	StorageNfsDefaultValueDefault               = false
 )
 
 var _ resource.Resource = &StorageNfsResource{}
@@ -82,7 +83,7 @@ func (r *StorageNfsResource) Schema(ctx context.Context, req resource.SchemaRequ
 				MarkdownDescription: "Underlying associated CephFS volume name (default: 'nfs')",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(StorageNfsDefaultFs),
+				Default:             stringdefault.StaticString(StorageNfsDefaultValueFs),
 			},
 			KeyBackends: schema.ListAttribute{
 				MarkdownDescription: "List of NFS Ganesha API server IP addresses",
@@ -100,13 +101,13 @@ func (r *StorageNfsResource) Schema(ctx context.Context, req resource.SchemaRequ
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
-				Default: int64default.StaticInt64(StorageNfsGaneshaApiPortDefault),
+				Default: int64default.StaticInt64(StorageNfsDefaultValueGaneshaApiPortDefault),
 			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set NFS storage as zone's default one (default: **false**). First NFS storage to be created is always considered as default's one.",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(StorageNfsDefaultValueDefault),
 			},
 		},
 	}
@@ -136,16 +137,28 @@ func storageNfsModelToResource(r *sdk.StorageNFS, d *StorageNfsResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.Endpoint = types.StringValue(r.Endpoint)
-	d.FS = types.StringPointerValue(r.Fs)
+	if r.Fs != nil {
+		d.FS = types.StringPointerValue(r.Fs)
+	} else {
+		d.FS = types.StringValue(StorageNfsDefaultValueFs)
+	}
 	backends := []attr.Value{}
 	sort.Strings(r.Backends)
 	for _, b := range r.Backends {
 		backends = append(backends, types.StringValue(b))
 	}
 	d.Backends, _ = types.ListValue(types.StringType, backends)
-	d.Port = types.Int64PointerValue(r.Port)
+	if r.Port != nil {
+		d.Port = types.Int64PointerValue(r.Port)
+	} else {
+		d.Port = types.Int64Value(StorageNfsDefaultValueGaneshaApiPortDefault)
+	}
 }
 
 func (r *StorageNfsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

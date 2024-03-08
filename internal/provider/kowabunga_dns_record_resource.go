@@ -83,7 +83,11 @@ func recordResourceToModel(d *DnsRecordResourceModel) sdk.DnsRecord {
 // converts record from Kowabunga API model to Terraform model
 func recordModelToResource(r *sdk.DnsRecord, d *DnsRecordResourceModel) {
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	addresses := []attr.Value{}
 	for _, a := range r.Addresses {
 		addresses = append(addresses, types.StringValue(a))

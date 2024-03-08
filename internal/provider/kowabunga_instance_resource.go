@@ -19,6 +19,8 @@ import (
 
 const (
 	InstanceResourceName = "instance"
+
+	InstanceDefaultValueNotify = true
 )
 
 var _ resource.Resource = &InstanceResource{}
@@ -92,7 +94,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(true),
+				Default:             booldefault.StaticBool(InstanceDefaultValueNotify),
 			},
 		},
 	}
@@ -126,7 +128,11 @@ func instanceModelToResource(r *sdk.Instance, d *InstanceResourceModel) {
 
 	memSize := r.Memory / HelperGbToBytes
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.VCPUs = types.Int64Value(r.Vcpus)
 	d.Memory = types.Int64Value(memSize)
 	adapters := []attr.Value{}

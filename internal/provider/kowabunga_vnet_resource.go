@@ -19,6 +19,8 @@ import (
 
 const (
 	VNetResourceName = "vnet"
+
+	VNetDefaultValuePrivate = true
 )
 
 var _ resource.Resource = &VNetResource{}
@@ -79,7 +81,7 @@ func (r *VNetResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				MarkdownDescription: "Whether the virtual network is private or public (default: **true**). The first virtual network to be created is always considered to be the default one.",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(true),
+				Default:             booldefault.StaticBool(VNetDefaultValuePrivate),
 			},
 		},
 	}
@@ -104,10 +106,18 @@ func vnetModelToResource(r *sdk.VNet, d *VNetResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.VLAN = types.Int64Value(r.Vlan)
 	d.Interface = types.StringValue(r.Interface)
-	d.Private = types.BoolPointerValue(r.Private)
+	if r.Private != nil {
+		d.Private = types.BoolPointerValue(r.Private)
+	} else {
+		d.Private = types.BoolValue(VNetDefaultValuePrivate)
+	}
 }
 
 func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

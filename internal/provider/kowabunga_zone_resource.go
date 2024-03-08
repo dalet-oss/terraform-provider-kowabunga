@@ -77,7 +77,11 @@ func zoneModelToResource(r *sdk.Zone, d *ZoneResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 }
 
 func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

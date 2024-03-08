@@ -25,6 +25,11 @@ import (
 
 const (
 	StoragePoolResourceName = "storage_pool"
+
+	StoragePoolDefaultValueType     = "rbd"
+	StoragePoolDefaultValueHost     = ""
+	StoragePoolDefaultValuePrice    = 0
+	StoragePoolDefaultValueCurrency = "EUR"
 )
 
 var _ resource.Resource = &StoragePoolResource{}
@@ -83,12 +88,13 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+				Default: stringdefault.StaticString(StoragePoolDefaultValueType),
 			},
 			KeyHost: schema.StringAttribute{
 				MarkdownDescription: "Host to bind the storage pool to (default: none)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(""),
+				Default:             stringdefault.StaticString(StoragePoolDefaultValueHost),
 			},
 			KeyPool: schema.StringAttribute{
 				MarkdownDescription: "Ceph RBD pool name",
@@ -119,13 +125,13 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "libvirt host monthly price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             int64default.StaticInt64(StoragePoolDefaultValuePrice),
 			},
 			KeyCurrency: schema.StringAttribute{
 				MarkdownDescription: "libvirt host monthly price currency (default: **EUR**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString("EUR"),
+				Default:             stringdefault.StaticString(StoragePoolDefaultValueCurrency),
 			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set pool as zone's default one (default: **false**). First pool to be created is always considered as default's one.",
@@ -173,12 +179,32 @@ func storagePoolModelToResource(r *sdk.StoragePool, d *StoragePoolResourceModel)
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
-	d.Type = types.StringPointerValue(r.Type)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
+	if r.Type != nil {
+		d.Type = types.StringPointerValue(r.Type)
+	} else {
+		d.Type = types.StringValue(StoragePoolDefaultValueType)
+	}
 	d.Pool = types.StringValue(r.Pool)
-	d.Address = types.StringPointerValue(r.CephAddress)
-	d.Port = types.Int64PointerValue(r.CephPort)
-	d.Secret = types.StringPointerValue(r.CephSecretUuid)
+	if r.CephAddress != nil {
+		d.Address = types.StringPointerValue(r.CephAddress)
+	} else {
+		d.Address = types.StringValue("")
+	}
+	if r.CephPort != nil {
+		d.Port = types.Int64PointerValue(r.CephPort)
+	} else {
+		d.Port = types.Int64Value(0)
+	}
+	if r.CephSecretUuid != nil {
+		d.Secret = types.StringPointerValue(r.CephSecretUuid)
+	} else {
+		d.Secret = types.StringValue("")
+	}
 	d.Price = types.Int64Value(int64(r.Cost.Price))
 	d.Currency = types.StringValue(r.Cost.Currency)
 	agents := []attr.Value{}

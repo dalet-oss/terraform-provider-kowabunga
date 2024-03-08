@@ -22,6 +22,12 @@ import (
 
 const (
 	KceResourceName = "kce"
+
+	KceDefaultValuePool      = ""
+	KceDefaultValueTemplate  = ""
+	KceDefaultValueExtraDisk = 0
+	KceDefaultValuePublic    = false
+	KceDefaultValueNotify    = true
 )
 
 var _ resource.Resource = &KceResource{}
@@ -82,13 +88,13 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated storage pool name or ID (zone's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(""),
+				Default:             stringdefault.StaticString(KceDefaultValuePool),
 			},
 			KeyTemplate: schema.StringAttribute{
 				MarkdownDescription: "Associated template name or ID (zone's default storage pool's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(""),
+				Default:             stringdefault.StaticString(KceDefaultValueTemplate),
 			},
 			KeyVCPUs: schema.Int64Attribute{
 				MarkdownDescription: "The KCE number of vCPUs",
@@ -106,19 +112,19 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "The KCE optional data disk size (expressed in GB, disabled by default, 0 to disable)",
 				Optional:            true,
 				Computed:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             int64default.StaticInt64(KceDefaultValueExtraDisk),
 			},
 			KeyPublic: schema.BoolAttribute{
 				MarkdownDescription: "Should KCE be exposed over public Internet ? (default: **false**)",
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(KceDefaultValuePublic),
 			},
 			KeyNotify: schema.BoolAttribute{
 				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(true),
+				Default:             booldefault.StaticBool(KceDefaultValueNotify),
 			},
 			KeyIP: schema.StringAttribute{
 				MarkdownDescription: "IP (read-only)",
@@ -163,12 +169,20 @@ func kceModelToResource(r *sdk.KCE, d *KceResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.VCPUs = types.Int64Value(r.Vcpus)
 	d.Memory = types.Int64Value(memSize)
 	d.Disk = types.Int64Value(diskSize)
 	d.ExtraDisk = types.Int64Value(extraDiskSize)
-	d.IP = types.StringPointerValue(r.Ip)
+	if r.Ip != nil {
+		d.IP = types.StringPointerValue(r.Ip)
+	} else {
+		d.IP = types.StringValue("")
+	}
 }
 
 func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

@@ -24,6 +24,9 @@ import (
 
 const (
 	HostResourceName = "host"
+
+	HostDefaultValueCpuOverCommit    = 3
+	HostDefaultValueMemoryOverCommit = 2
 )
 
 var _ resource.Resource = &HostResource{}
@@ -148,13 +151,13 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				MarkdownDescription: "libvirt host CPU over-commit factor (default: 3)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(3),
+				Default:             int64default.StaticInt64(HostDefaultValueCpuOverCommit),
 			},
 			KeyMemoryOvercommit: schema.Int64Attribute{
 				MarkdownDescription: "libvirt host Memory over-commit factor (default: 2)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(2),
+				Default:             int64default.StaticInt64(HostDefaultValueMemoryOverCommit),
 			},
 			KeyAgents: schema.ListAttribute{
 				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the host",
@@ -203,18 +206,34 @@ func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.Protocol = types.StringValue(r.Protocol)
 	d.Address = types.StringValue(r.Address)
-	d.Port = types.Int64PointerValue(r.Port)
+	if r.Port != nil {
+		d.Port = types.Int64PointerValue(r.Port)
+	} else {
+		d.Port = types.Int64Value(0)
+	}
 	d.CpuPrice = types.Int64Value(int64(r.CpuCost.Price))
 	d.Currency = types.StringValue(r.CpuCost.Currency)
 	d.MemoryPrice = types.Int64Value(int64(r.MemoryCost.Price))
 	d.TlsKey = types.StringValue(r.Tls.Key)
 	d.TlsCert = types.StringValue(r.Tls.Cert)
 	d.TlsCA = types.StringValue(r.Tls.Ca)
-	d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCpuRatio)
-	d.MemoryOvercommit = types.Int64PointerValue(r.OvercommitMemoryRatio)
+	if r.OvercommitCpuRatio != nil {
+		d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCpuRatio)
+	} else {
+		d.CpuOvercommit = types.Int64Value(HostDefaultValueCpuOverCommit)
+	}
+	if r.OvercommitMemoryRatio != nil {
+		d.MemoryOvercommit = types.Int64PointerValue(r.OvercommitMemoryRatio)
+	} else {
+		d.MemoryOvercommit = types.Int64Value(HostDefaultValueMemoryOverCommit)
+	}
 	agents := []attr.Value{}
 	for _, a := range r.Agents {
 		agents = append(agents, types.StringValue(a))

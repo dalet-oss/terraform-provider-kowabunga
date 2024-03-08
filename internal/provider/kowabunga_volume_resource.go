@@ -17,6 +17,8 @@ import (
 
 const (
 	VolumeResourceName = "volume"
+
+	VolumeDefaultValueResizable = false
 )
 
 var _ resource.Resource = &VolumeResource{}
@@ -88,7 +90,7 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "Is the storage volume allowed to grow (filesystem dependant) ? (default: **false**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(VolumeDefaultValueResizable),
 			},
 		},
 	}
@@ -109,10 +111,18 @@ func volumeResourceToModel(d *VolumeResourceModel) sdk.Volume {
 // converts volume from Kowabunga API model to Terraform model
 func volumeModelToResource(r *sdk.Volume, d *VolumeResourceModel) {
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.Type = types.StringValue(r.Type)
 	d.Size = types.Int64Value(r.Size / HelperGbToBytes)
-	d.Resizable = types.BoolPointerValue(r.Resizable)
+	if r.Resizable != nil {
+		d.Resizable = types.BoolPointerValue(r.Resizable)
+	} else {
+		d.Resizable = types.BoolValue(VolumeDefaultValueResizable)
+	}
 }
 
 func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

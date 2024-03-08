@@ -18,6 +18,10 @@ import (
 
 const (
 	TemplateResourceName = "template"
+
+	TemplateDefaultValueType    = "os"
+	TemplateDefaultValueOS      = "linux"
+	TemplateDefaultValueDefault = false
 )
 
 var _ resource.Resource = &TemplateResource{}
@@ -66,19 +70,19 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "The template type (valid options: 'os', 'raw'). Defaults to **os**.",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString("os"),
+				Default:             stringdefault.StaticString(TemplateDefaultValueType),
 			},
 			KeyOS: schema.StringAttribute{
 				MarkdownDescription: "The template type (valid options: 'linux', 'windows'). Defaults to **linux**.",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString("linux"),
+				Default:             stringdefault.StaticString(TemplateDefaultValueOS),
 			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set template as zone's default one (default: **false**). The first template to be created is always considered as default.",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(TemplateDefaultValueDefault),
 			},
 		},
 	}
@@ -102,9 +106,21 @@ func templateModelToResource(r *sdk.Template, d *TemplateResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
-	d.Type = types.StringPointerValue(r.Type)
-	d.OS = types.StringPointerValue(r.Os)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
+	if r.Type != nil {
+		d.Type = types.StringPointerValue(r.Type)
+	} else {
+		d.Type = types.StringValue(TemplateDefaultValueType)
+	}
+	if r.Os != nil {
+		d.OS = types.StringPointerValue(r.Os)
+	} else {
+		d.OS = types.StringValue(TemplateDefaultValueOS)
+	}
 }
 
 func (r *TemplateResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

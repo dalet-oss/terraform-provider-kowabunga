@@ -102,7 +102,11 @@ func agentModelToResource(r *sdk.Agent, d *AgentResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.Type = types.StringValue(r.Type)
 }
 

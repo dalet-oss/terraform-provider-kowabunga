@@ -102,9 +102,17 @@ func netgwModelToResource(r *sdk.NetGW, d *NetGWResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.Address = types.StringValue(r.Address)
-	d.Port = types.Int64PointerValue(r.Port)
+	if r.Port != nil {
+		d.Port = types.Int64PointerValue(r.Port)
+	} else {
+		d.Port = types.Int64Value(0)
+	}
 	d.Token = types.StringValue(r.Token)
 }
 

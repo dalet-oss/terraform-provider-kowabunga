@@ -25,6 +25,9 @@ import (
 
 const (
 	AdapterResourceName = "adapter"
+
+	AdapterDefaultValueAssign   = true
+	AdapterDefaultValueReserved = false
 )
 
 var _ resource.Resource = &AdapterResource{}
@@ -99,14 +102,14 @@ func (r *AdapterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "Whether an IP address should be automatically assigned to the adapter (default: **true). Useless if addresses have been specified",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(true),
+				Default:             booldefault.StaticBool(AdapterDefaultValueAssign),
 			},
 
 			KeyReserved: schema.BoolAttribute{
 				MarkdownDescription: "Whether the network adapter is reserved (e.g. router), i.e. where the same hardware address can be reused over several subnets (default: **false**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(AdapterDefaultValueReserved),
 			},
 			KeyCIDR: schema.StringAttribute{
 				MarkdownDescription: "Network mask CIDR (read-only), e.g. 192.168.0.0/24",
@@ -161,8 +164,16 @@ func adapterModelToResource(r *sdk.Adapter, d *AdapterResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
-	d.MAC = types.StringPointerValue(r.Mac)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
+	if r.Mac != nil {
+		d.MAC = types.StringPointerValue(r.Mac)
+	} else {
+		d.MAC = types.StringValue("")
+	}
 	addresses := []attr.Value{}
 	for _, a := range r.Addresses {
 		addresses = append(addresses, types.StringValue(a))
@@ -171,7 +182,7 @@ func adapterModelToResource(r *sdk.Adapter, d *AdapterResourceModel) {
 	if r.Reserved != nil {
 		d.Reserved = types.BoolPointerValue(r.Reserved)
 	} else {
-		d.Reserved = types.BoolValue(false)
+		d.Reserved = types.BoolValue(AdapterDefaultValueReserved)
 	}
 }
 

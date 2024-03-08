@@ -24,6 +24,15 @@ import (
 
 const (
 	ProjectResourceName = "project"
+
+	ProjectDefaultValueDomain       = ""
+	ProjecDefaultValueSubnetSize    = 26
+	ProjectDefaultValueRootPassword = ""
+	ProjectDefaultValueMaxInstances = 0
+	ProjectDefaultValueMaxMemory    = 0
+	ProjectDefaultValueMaxStorage   = 0
+	ProjectDefaultValueMaxVCPUs     = 0
+	ProjectDefaultValueNotify       = true
 )
 
 var _ resource.Resource = &ProjectResource{}
@@ -91,19 +100,19 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "Internal domain name associated to the project (e.g. myproject.acme.com). (default: none)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(""),
+				Default:             stringdefault.StaticString(ProjectDefaultValueDomain),
 			},
 			KeySubnetSize: schema.Int64Attribute{
 				MarkdownDescription: "Project requested VPC subnet size (defaults to /26)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(26),
+				Default:             int64default.StaticInt64(ProjecDefaultValueSubnetSize),
 			},
 			KeyRootPassword: schema.StringAttribute{
 				MarkdownDescription: "The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(""),
+				Default:             stringdefault.StaticString(ProjectDefaultValueRootPassword),
 			},
 			KeyBootstrapUser: schema.StringAttribute{
 				MarkdownDescription: "The project default service user name, created at cloud-init instance bootstrap phase. Will use Kowabunga's default configuration one if unspecified.",
@@ -135,31 +144,31 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "Project maximum deployable instances. Defaults to 0 (unlimited).",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             int64default.StaticInt64(ProjectDefaultValueMaxInstances),
 			},
 			KeyMaxMemory: schema.Int64Attribute{
 				MarkdownDescription: "Project maximum usable memory (expressed in GB). Defaults to 0 (unlimited).",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             int64default.StaticInt64(ProjectDefaultValueMaxMemory),
 			},
 			KeyMaxStorage: schema.Int64Attribute{
 				MarkdownDescription: "Project maximum usable storage (expressed in GB). Defaults to 0 (unlimited).",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             int64default.StaticInt64(ProjectDefaultValueMaxStorage),
 			},
 			KeyMaxVCPUs: schema.Int64Attribute{
 				MarkdownDescription: "Project maximum usable virtual CPUs. Defaults to 0 (unlimited).",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             int64default.StaticInt64(ProjectDefaultValueMaxVCPUs),
 			},
 			KeyNotify: schema.BoolAttribute{
 				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(true),
+				Default:             booldefault.StaticBool(ProjectDefaultValueNotify),
 			},
 			KeyPrivateSubnets: schema.MapAttribute{
 				Computed:            true,
@@ -219,13 +228,33 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.Owner = types.StringValue(r.Owner)
 	d.Email = types.StringValue(r.Email)
-	d.Domain = types.StringPointerValue(r.Domain)
-	d.RootPassword = types.StringPointerValue(r.RootPassword)
-	d.User = types.StringPointerValue(r.BootstrapUser)
-	d.Pubkey = types.StringPointerValue(r.BootstrapPubkey)
+	if r.Domain != nil {
+		d.Domain = types.StringPointerValue(r.Domain)
+	} else {
+		d.Domain = types.StringValue(ProjectDefaultValueDomain)
+	}
+	if r.RootPassword != nil {
+		d.RootPassword = types.StringPointerValue(r.RootPassword)
+	} else {
+		d.RootPassword = types.StringValue(ProjectDefaultValueRootPassword)
+	}
+	if r.BootstrapUser != nil {
+		d.User = types.StringPointerValue(r.BootstrapUser)
+	} else {
+		d.User = types.StringValue("")
+	}
+	if r.BootstrapPubkey != nil {
+		d.Pubkey = types.StringPointerValue(r.BootstrapPubkey)
+	} else {
+		d.Pubkey = types.StringValue("")
+	}
 	tags := []attr.Value{}
 	for _, t := range r.Tags {
 		tags = append(tags, types.StringValue(t))
@@ -233,7 +262,11 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 	d.Tags, _ = types.ListValue(types.StringType, tags)
 	metadatas := map[string]attr.Value{}
 	for _, m := range r.Metadatas {
-		metadatas[*m.Key] = types.StringPointerValue(m.Value)
+		if m.Value != nil {
+			metadatas[*m.Key] = types.StringPointerValue(m.Value)
+		} else {
+			metadatas[*m.Key] = types.StringValue("")
+		}
 	}
 	d.Metadatas = basetypes.NewMapValueMust(types.StringType, metadatas)
 	d.MaxInstances = types.Int64Value(int64(*r.Quotas.Instances))
@@ -243,7 +276,11 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 
 	privateSubnets := map[string]attr.Value{}
 	for _, p := range r.PrivateSubnets {
-		privateSubnets[*p.Key] = types.StringPointerValue(p.Value)
+		if p.Value != nil {
+			privateSubnets[*p.Key] = types.StringPointerValue(p.Value)
+		} else {
+			privateSubnets[*p.Key] = types.StringValue("")
+		}
 	}
 	d.PrivateSubnets = basetypes.NewMapValueMust(types.StringType, privateSubnets)
 }

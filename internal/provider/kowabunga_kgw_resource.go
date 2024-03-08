@@ -168,9 +168,21 @@ func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	if r == nil {
 		return
 	}
-	d.Desc = types.StringPointerValue(r.Description)
-	d.PublicIp = types.StringPointerValue(r.PublicIp)
-	d.PrivateIp = types.StringPointerValue(r.PrivateIp)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
+	if r.PublicIp != nil {
+		d.PublicIp = types.StringPointerValue(r.PublicIp)
+	} else {
+		d.PublicIp = types.StringValue("")
+	}
+	if r.PrivateIp != nil {
+		d.PrivateIp = types.StringPointerValue(r.PrivateIp)
+	} else {
+		d.PrivateIp = types.StringValue("")
+	}
 
 	nats := []attr.Value{}
 	natType := map[string]attr.Type{
@@ -179,10 +191,18 @@ func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 		KeyPorts:     types.StringType,
 	}
 	for _, nat := range r.Nats {
+		var publicIp string
+		if nat.PublicIp != nil {
+			publicIp = *nat.PublicIp
+		}
+		var ports string
+		if nat.Ports != nil {
+			ports = *nat.Ports
+		}
 		a := map[string]attr.Value{
 			KeyPrivateIp: types.StringValue(nat.PrivateIp),
-			KeyPublicIp:  types.StringPointerValue(nat.PublicIp),
-			KeyPorts:     types.StringPointerValue(nat.Ports),
+			KeyPublicIp:  types.StringPointerValue(&publicIp),
+			KeyPorts:     types.StringPointerValue(&ports),
 		}
 		object, _ := types.ObjectValue(natType, a)
 		nats = append(nats, object)

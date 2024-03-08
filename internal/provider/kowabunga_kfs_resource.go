@@ -23,6 +23,10 @@ import (
 
 const (
 	KfsResourceName = "kfs"
+
+	KfsDefaultValueNfs        = ""
+	KfsDefaultValueAccessType = "RW"
+	KdsDefaultValueNotify     = true
 )
 
 var _ resource.Resource = &KfsResource{}
@@ -86,13 +90,13 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated NFS storage name or ID (zone's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(""),
+				Default:             stringdefault.StaticString(KfsDefaultValueNfs),
 			},
 			KeyAccessType: schema.StringAttribute{
 				MarkdownDescription: "KFS' access type. Allowed values: 'RW' or 'RO'. Defaults to RW.",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("RW"),
+				Default:             stringdefault.StaticString(KfsDefaultValueAccessType),
 			},
 			KeyProtocols: schema.ListAttribute{
 				MarkdownDescription: "KFS's requested NFS protocols versions (defaults to NFSv3 and NFSv4))",
@@ -105,7 +109,7 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(true),
+				Default:             booldefault.StaticBool(KdsDefaultValueNotify),
 			},
 			KeyEndpoint: schema.StringAttribute{
 				MarkdownDescription: "NFS Endoint (read-only)",
@@ -144,14 +148,26 @@ func kfsModelToResource(r *sdk.KFS, d *KfsResourceModel) {
 	}
 
 	d.Name = types.StringValue(r.Name)
-	d.Desc = types.StringPointerValue(r.Description)
-	d.Access = types.StringPointerValue(r.Access)
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
+	if r.Access != nil {
+		d.Access = types.StringPointerValue(r.Access)
+	} else {
+		d.Access = types.StringValue(KfsDefaultValueAccessType)
+	}
 	protocols := []attr.Value{}
 	for _, p := range r.Protocols {
 		protocols = append(protocols, types.Int64Value(int64(p)))
 	}
 	d.Protocols, _ = types.ListValue(types.Int64Type, protocols)
-	d.Endpoint = types.StringPointerValue(r.Endpoint)
+	if r.Endpoint != nil {
+		d.Endpoint = types.StringPointerValue(r.Endpoint)
+	} else {
+		d.Endpoint = types.StringValue("")
+	}
 }
 
 func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

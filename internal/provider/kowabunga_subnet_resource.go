@@ -20,6 +20,8 @@ import (
 
 const (
 	SubnetResourceName = "subnet"
+
+	SubnetDefaultValueDefault = false
 )
 
 var _ resource.Resource = &SubnetResource{}
@@ -93,7 +95,7 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "Whether to set subnet as virtual network's default one (default: **false**). The first subnet to be created is always considered as default one.",
 				Computed:            true,
 				Optional:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(SubnetDefaultValueDefault),
 			},
 		},
 	}
@@ -137,10 +139,18 @@ func subnetModelToResource(s *sdk.Subnet, d *SubnetResourceModel) {
 	}
 
 	d.Name = types.StringValue(s.Name)
-	d.Desc = types.StringPointerValue(s.Description)
+	if s.Description != nil {
+		d.Desc = types.StringPointerValue(s.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
 	d.CIDR = types.StringValue(s.Cidr)
 	d.Gateway = types.StringValue(s.Gateway)
-	d.DNS = types.StringPointerValue(s.Dns)
+	if s.Dns != nil {
+		d.DNS = types.StringPointerValue(s.Dns)
+	} else {
+		d.DNS = types.StringValue("")
+	}
 
 	ranges := []attr.Value{}
 	for _, item := range s.Reserved {
