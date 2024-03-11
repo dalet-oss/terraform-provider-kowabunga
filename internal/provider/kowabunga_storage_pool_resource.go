@@ -245,7 +245,7 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 	m := storagePoolResourceToModel(data)
 	api := r.Data.K.ZoneAPI.CreateStoragePool(ctx, zoneId).StoragePool(m)
 	if hostId != "" {
-		api.HostId(hostId)
+		api = api.HostId(hostId)
 	}
 	pool, _, err := api.Execute()
 	if err != nil {

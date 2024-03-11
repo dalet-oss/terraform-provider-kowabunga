@@ -207,7 +207,7 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 	m := kfsResourceToModel(data)
 	api := r.Data.K.ProjectAPI.CreateProjectZoneKFS(ctx, projectId, zoneId).KFS(m).Notify(data.Notify.ValueBool())
 	if nfsId != "" {
-		api.NfsId(nfsId)
+		api = api.NfsId(nfsId)
 	}
 	kfs, _, err := api.Execute()
 	if err != nil {

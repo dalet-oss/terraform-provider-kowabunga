@@ -225,10 +225,10 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 	m := kceResourceToModel(data)
 	api := r.Data.K.ProjectAPI.CreateProjectZoneKCE(ctx, projectId, zoneId).KCE(m).Public(data.Public.ValueBool()).Notify(data.Notify.ValueBool())
 	if poolId != "" {
-		api.PoolId(poolId)
+		api = api.PoolId(poolId)
 	}
 	if templateId != "" {
-		api.TemplateId(templateId)
+		api = api.TemplateId(templateId)
 	}
 	kce, _, err := api.Execute()
 	if err != nil {

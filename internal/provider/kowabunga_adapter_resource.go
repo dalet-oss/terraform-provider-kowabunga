@@ -248,7 +248,7 @@ func (r *AdapterResource) Create(ctx context.Context, req resource.CreateRequest
 	m := adapterResourceToModel(data)
 	api := r.Data.K.SubnetAPI.CreateAdapter(ctx, subnetId).Adapter(m)
 	if data.Assign.ValueBool() && len(m.Addresses) == 0 {
-		api.AssignIP(data.Assign.ValueBool())
+		api = api.AssignIP(data.Assign.ValueBool())
 	}
 
 	adapter, _, err := api.Execute()

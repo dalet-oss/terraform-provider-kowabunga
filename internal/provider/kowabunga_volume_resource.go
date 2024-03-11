@@ -165,10 +165,10 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	m := volumeResourceToModel(data)
 	api := r.Data.K.ProjectAPI.CreateProjectZoneVolume(ctx, projectId, zoneId).Volume(m)
 	if poolId != "" {
-		api.PoolId(poolId)
+		api = api.PoolId(poolId)
 	}
 	if templateId != "" {
-		api.TemplateId(templateId)
+		api = api.TemplateId(templateId)
 	}
 	volume, _, err := api.Execute()
 	if err != nil {
