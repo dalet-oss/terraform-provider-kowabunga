@@ -17,7 +17,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -26,8 +25,6 @@ import (
 const (
 	StoragePoolResourceName = "storage_pool"
 
-	StoragePoolDefaultValueType     = "rbd"
-	StoragePoolDefaultValueHost     = ""
 	StoragePoolDefaultValuePrice    = 0
 	StoragePoolDefaultValueCurrency = "EUR"
 )
@@ -49,8 +46,6 @@ type StoragePoolResourceModel struct {
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
 	Zone     types.String   `tfsdk:"zone"`
-	Type     types.String   `tfsdk:"type"`
-	Host     types.String   `tfsdk:"host"`
 	Pool     types.String   `tfsdk:"pool"`
 	Address  types.String   `tfsdk:"address"`
 	Port     types.Int64    `tfsdk:"port"`
@@ -80,21 +75,6 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 			KeyZone: schema.StringAttribute{
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
-			},
-			KeyType: schema.StringAttribute{
-				MarkdownDescription: "Storage pool type ('local' or 'rbd', defaults to 'rbd')",
-				Optional:            true,
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-				Default: stringdefault.StaticString(StoragePoolDefaultValueType),
-			},
-			KeyHost: schema.StringAttribute{
-				MarkdownDescription: "Host to bind the storage pool to (default: none)",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString(StoragePoolDefaultValueHost),
 			},
 			KeyPool: schema.StringAttribute{
 				MarkdownDescription: "Ceph RBD pool name",
@@ -162,7 +142,6 @@ func storagePoolResourceToModel(d *StoragePoolResourceModel) sdk.StoragePool {
 	return sdk.StoragePool{
 		Name:           d.Name.ValueString(),
 		Description:    d.Desc.ValueStringPointer(),
-		Type:           d.Type.ValueStringPointer(),
 		Pool:           d.Pool.ValueString(),
 		CephAddress:    d.Address.ValueStringPointer(),
 		CephPort:       d.Port.ValueInt64Pointer(),
@@ -183,11 +162,6 @@ func storagePoolModelToResource(r *sdk.StoragePool, d *StoragePoolResourceModel)
 		d.Desc = types.StringPointerValue(r.Description)
 	} else {
 		d.Desc = types.StringValue("")
-	}
-	if r.Type != nil {
-		d.Type = types.StringPointerValue(r.Type)
-	} else {
-		d.Type = types.StringValue(StoragePoolDefaultValueType)
 	}
 	d.Pool = types.StringValue(r.Pool)
 	if r.CephAddress != nil {
@@ -238,16 +212,10 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 		errorCreateGeneric(resp, err)
 		return
 	}
-	// find parent template (optional)
-	hostId, _ := getHostID(ctx, r.Data, data.Host.ValueString())
 
 	// create a new storage pool
 	m := storagePoolResourceToModel(data)
-	api := r.Data.K.ZoneAPI.CreateStoragePool(ctx, zoneId).StoragePool(m)
-	if hostId != "" {
-		api = api.HostId(hostId)
-	}
-	pool, _, err := api.Execute()
+	pool, _, err := r.Data.K.ZoneAPI.CreateStoragePool(ctx, zoneId).StoragePool(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return

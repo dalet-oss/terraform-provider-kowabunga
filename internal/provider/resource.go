@@ -35,7 +35,6 @@ const (
 	KeyMemoryOvercommit = "memory_overcommit"
 	KeyCurrency         = "currency"
 	KeyPool             = "pool"
-	KeyHost             = "host"
 	KeySecret           = "secret"
 	KeyVLAN             = "vlan"
 	KeyInterface        = "interface"
@@ -388,25 +387,4 @@ func getTemplateID(ctx context.Context, data *KowabungaProviderData, id string) 
 	}
 
 	return "", fmt.Errorf(ErrorUnknownTemplate)
-}
-
-func getHostID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
-	// let's suppose param is a proper template ID
-	host, _, err := data.K.HostAPI.ReadHost(ctx, id).Execute()
-	if err == nil {
-		return *host.Id, nil
-	}
-
-	// fall back, it may be a host name then, finds its associated ID
-	hosts, _, err := data.K.HostAPI.ListHosts(ctx).Execute()
-	if err == nil {
-		for _, hn := range hosts {
-			h, _, err := data.K.HostAPI.ReadHost(ctx, hn).Execute()
-			if err == nil && h.Name == id {
-				return *h.Id, nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf(ErrorUnknownHost)
 }
