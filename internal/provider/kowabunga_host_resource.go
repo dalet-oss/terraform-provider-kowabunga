@@ -8,16 +8,11 @@ import (
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -46,12 +41,6 @@ type HostResourceModel struct {
 	Name             types.String   `tfsdk:"name"`
 	Desc             types.String   `tfsdk:"desc"`
 	Zone             types.String   `tfsdk:"zone"`
-	Protocol         types.String   `tfsdk:"protocol"`
-	Address          types.String   `tfsdk:"address"`
-	Port             types.Int64    `tfsdk:"port"`
-	TlsKey           types.String   `tfsdk:"key"`
-	TlsCert          types.String   `tfsdk:"cert"`
-	TlsCA            types.String   `tfsdk:"ca"`
 	CpuPrice         types.Int64    `tfsdk:"cpu_price"`
 	MemoryPrice      types.Int64    `tfsdk:"memory_price"`
 	Currency         types.String   `tfsdk:"currency"`
@@ -79,55 +68,6 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			KeyZone: schema.StringAttribute{
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
-			},
-			KeyProtocol: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API access protocol",
-				Required:            true,
-			},
-			KeyAddress: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API IPv4 address",
-				Required:            true,
-			},
-			KeyPort: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host API port number (defaults to 0, i.e. auto-detected)",
-				Computed:            true,
-				Optional:            true,
-				Validators: []validator.Int64{
-					int64validator.AtLeast(0),
-					int64validator.AtMost(65535),
-				},
-				Default: int64default.StaticInt64(0),
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
-			},
-			KeyTlsKey: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API TLS private key (default: none)",
-				Optional:            true,
-				Sensitive:           true,
-				Computed:            true,
-				Default:             stringdefault.StaticString(""),
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			KeyTlsCert: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API TLS certificate (default: none)",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString(""),
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			KeyTlsCA: schema.StringAttribute{
-				MarkdownDescription: "libvirt host API TLS CA (default: none)",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString(""),
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			KeyCpuPrice: schema.Int64Attribute{
 				MarkdownDescription: "libvirt host monthly CPU price value (default: 0)",
@@ -177,14 +117,6 @@ func hostResourceToModel(d *HostResourceModel) sdk.Host {
 	return sdk.Host{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
-		Protocol:    d.Protocol.ValueString(),
-		Address:     d.Address.ValueString(),
-		Port:        d.Port.ValueInt64Pointer(),
-		Tls: sdk.HostTLS{
-			Key:  d.TlsKey.ValueString(),
-			Cert: d.TlsCert.ValueString(),
-			Ca:   d.TlsCA.ValueString(),
-		},
 		CpuCost: sdk.Cost{
 			Price:    float32(d.CpuPrice.ValueInt64()),
 			Currency: d.Currency.ValueString(),
@@ -211,19 +143,9 @@ func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
 	} else {
 		d.Desc = types.StringValue("")
 	}
-	d.Protocol = types.StringValue(r.Protocol)
-	d.Address = types.StringValue(r.Address)
-	if r.Port != nil {
-		d.Port = types.Int64PointerValue(r.Port)
-	} else {
-		d.Port = types.Int64Value(0)
-	}
 	d.CpuPrice = types.Int64Value(int64(r.CpuCost.Price))
 	d.Currency = types.StringValue(r.CpuCost.Currency)
 	d.MemoryPrice = types.Int64Value(int64(r.MemoryCost.Price))
-	d.TlsKey = types.StringValue(r.Tls.Key)
-	d.TlsCert = types.StringValue(r.Tls.Cert)
-	d.TlsCA = types.StringValue(r.Tls.Ca)
 	if r.OvercommitCpuRatio != nil {
 		d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCpuRatio)
 	} else {
