@@ -8,10 +8,9 @@ import (
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -37,9 +36,7 @@ type NetGWResourceModel struct {
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
 	Zone     types.String   `tfsdk:"zone"`
-	Address  types.String   `tfsdk:"address"`
-	Port     types.Int64    `tfsdk:"port"`
-	Token    types.String   `tfsdk:"token"`
+	Agents   types.List     `tfsdk:"agents"`
 }
 
 func (r *NetGWResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -62,22 +59,10 @@ func (r *NetGWResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
 			},
-			KeyAddress: schema.StringAttribute{
-				MarkdownDescription: "Network gateway IPv4 address",
+			KeyAgents: schema.ListAttribute{
+				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the network gateway",
+				ElementType:         types.StringType,
 				Required:            true,
-			},
-			KeyPort: schema.Int64Attribute{
-				MarkdownDescription: "Network gateway API port number",
-				Optional:            true,
-				Validators: []validator.Int64{
-					int64validator.AtLeast(0),
-					int64validator.AtMost(65535),
-				},
-			},
-			KeyToken: schema.StringAttribute{
-				MarkdownDescription: "Network gateway API token",
-				Required:            true,
-				Sensitive:           true,
 			},
 		},
 	}
@@ -86,12 +71,14 @@ func (r *NetGWResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 
 // converts netgw from Terraform model to Kowabunga API model
 func netgwResourceToModel(d *NetGWResourceModel) sdk.NetGW {
+
+	agents := []string{}
+	d.Agents.ElementsAs(context.TODO(), &agents, false)
+
 	return sdk.NetGW{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
-		Address:     d.Address.ValueString(),
-		Port:        d.Port.ValueInt64Pointer(),
-		Token:       d.Token.ValueString(),
+		Agents:      agents,
 	}
 }
 
@@ -107,13 +94,11 @@ func netgwModelToResource(r *sdk.NetGW, d *NetGWResourceModel) {
 	} else {
 		d.Desc = types.StringValue("")
 	}
-	d.Address = types.StringValue(r.Address)
-	if r.Port != nil {
-		d.Port = types.Int64PointerValue(r.Port)
-	} else {
-		d.Port = types.Int64Value(0)
+	agents := []attr.Value{}
+	for _, a := range r.Agents {
+		agents = append(agents, types.StringValue(a))
 	}
-	d.Token = types.StringValue(r.Token)
+	d.Agents, _ = types.ListValue(types.StringType, agents)
 }
 
 func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
