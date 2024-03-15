@@ -27,7 +27,6 @@ const (
 	KceDefaultValueTemplate  = ""
 	KceDefaultValueExtraDisk = 0
 	KceDefaultValuePublic    = false
-	KceDefaultValueNotify    = true
 )
 
 var _ resource.Resource = &KceResource{}
@@ -55,7 +54,6 @@ type KceResourceModel struct {
 	Disk      types.Int64    `tfsdk:"disk"`
 	ExtraDisk types.Int64    `tfsdk:"extra_disk"`
 	Public    types.Bool     `tfsdk:"public"`
-	Notify    types.Bool     `tfsdk:"notify"`
 	IP        types.String   `tfsdk:"ip"`
 }
 
@@ -119,12 +117,6 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(KceDefaultValuePublic),
-			},
-			KeyNotify: schema.BoolAttribute{
-				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
-				Computed:            true,
-				Optional:            true,
-				Default:             booldefault.StaticBool(KceDefaultValueNotify),
 			},
 			KeyIP: schema.StringAttribute{
 				MarkdownDescription: "IP (read-only)",
@@ -223,7 +215,7 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// create a new KCE
 	m := kceResourceToModel(data)
-	api := r.Data.K.ProjectAPI.CreateProjectZoneKCE(ctx, projectId, zoneId).KCE(m).Public(data.Public.ValueBool()).Notify(data.Notify.ValueBool())
+	api := r.Data.K.ProjectAPI.CreateProjectZoneKCE(ctx, projectId, zoneId).KCE(m).Public(data.Public.ValueBool())
 	if poolId != "" {
 		api = api.PoolId(poolId)
 	}

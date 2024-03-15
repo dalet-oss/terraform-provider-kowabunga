@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -32,7 +31,6 @@ const (
 	ProjectDefaultValueMaxMemory    = 0
 	ProjectDefaultValueMaxStorage   = 0
 	ProjectDefaultValueMaxVCPUs     = 0
-	ProjectDefaultValueNotify       = true
 )
 
 var _ resource.Resource = &ProjectResource{}
@@ -64,7 +62,6 @@ type ProjectResourceModel struct {
 	MaxMemory      types.Int64    `tfsdk:"max_memory"`
 	MaxStorage     types.Int64    `tfsdk:"max_storage"`
 	MaxVCPUs       types.Int64    `tfsdk:"max_vcpus"`
-	Notify         types.Bool     `tfsdk:"notify"`
 	PrivateSubnets types.Map      `tfsdk:"private_subnets"`
 }
 
@@ -163,12 +160,6 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Computed:            true,
 				Optional:            true,
 				Default:             int64default.StaticInt64(ProjectDefaultValueMaxVCPUs),
-			},
-			KeyNotify: schema.BoolAttribute{
-				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
-				Computed:            true,
-				Optional:            true,
-				Default:             booldefault.StaticBool(ProjectDefaultValueNotify),
 			},
 			KeyPrivateSubnets: schema.MapAttribute{
 				Computed:            true,
@@ -305,7 +296,7 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// create a new project
 	m := projectResourceToModel(data)
-	project, _, err := r.Data.K.ProjectAPI.CreateProject(ctx).Project(m).SubnetSize(int32(data.SubnetSize.ValueInt64())).Notify(data.Notify.ValueBool()).Execute()
+	project, _, err := r.Data.K.ProjectAPI.CreateProject(ctx).Project(m).SubnetSize(int32(data.SubnetSize.ValueInt64())).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return

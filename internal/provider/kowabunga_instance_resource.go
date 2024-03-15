@@ -12,15 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 const (
 	InstanceResourceName = "instance"
-
-	InstanceDefaultValueNotify = true
 )
 
 var _ resource.Resource = &InstanceResource{}
@@ -45,7 +42,6 @@ type InstanceResourceModel struct {
 	Memory   types.Int64    `tfsdk:"mem"`
 	Adapters types.List     `tfsdk:"adapters"`
 	Volumes  types.List     `tfsdk:"volumes"`
-	Notify   types.Bool     `tfsdk:"notify"`
 }
 
 func (r *InstanceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -89,12 +85,6 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "The list of storage volumes to be associated with the instance",
 				ElementType:         types.StringType,
 				Required:            true,
-			},
-			KeyNotify: schema.BoolAttribute{
-				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
-				Computed:            true,
-				Optional:            true,
-				Default:             booldefault.StaticBool(InstanceDefaultValueNotify),
 			},
 		},
 	}
@@ -180,7 +170,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	}
 	// create a new instance
 	m := instanceResourceToModel(data)
-	instance, _, err := r.Data.K.ProjectAPI.CreateProjectZoneInstance(ctx, projectId, zoneId).Instance(m).Notify(data.Notify.ValueBool()).Execute()
+	instance, _, err := r.Data.K.ProjectAPI.CreateProjectZoneInstance(ctx, projectId, zoneId).Instance(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return

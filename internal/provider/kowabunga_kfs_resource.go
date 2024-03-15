@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -26,7 +25,6 @@ const (
 
 	KfsDefaultValueNfs        = ""
 	KfsDefaultValueAccessType = "RW"
-	KdsDefaultValueNotify     = true
 )
 
 var _ resource.Resource = &KfsResource{}
@@ -50,7 +48,6 @@ type KfsResourceModel struct {
 	Nfs       types.String   `tfsdk:"nfs"`
 	Access    types.String   `tfsdk:"access_type"`
 	Protocols types.List     `tfsdk:"protocols"`
-	Notify    types.Bool     `tfsdk:"notify"`
 	// read-only
 	Endpoint types.String `tfsdk:"endpoint"`
 }
@@ -104,12 +101,6 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Optional:            true,
 				Computed:            true,
 				Default:             listdefault.StaticValue(protocols),
-			},
-			KeyNotify: schema.BoolAttribute{
-				MarkdownDescription: "Whether to send email notification at creation (default: **true**)",
-				Computed:            true,
-				Optional:            true,
-				Default:             booldefault.StaticBool(KdsDefaultValueNotify),
 			},
 			KeyEndpoint: schema.StringAttribute{
 				MarkdownDescription: "NFS Endoint (read-only)",
@@ -205,7 +196,7 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// create a new KFS
 	m := kfsResourceToModel(data)
-	api := r.Data.K.ProjectAPI.CreateProjectZoneKFS(ctx, projectId, zoneId).KFS(m).Notify(data.Notify.ValueBool())
+	api := r.Data.K.ProjectAPI.CreateProjectZoneKFS(ctx, projectId, zoneId).KFS(m)
 	if nfsId != "" {
 		api = api.NfsId(nfsId)
 	}
