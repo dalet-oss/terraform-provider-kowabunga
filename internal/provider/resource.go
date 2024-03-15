@@ -75,6 +75,7 @@ const (
 	KeyNats             = "nats"
 	KeyType             = "type"
 	KeyOS               = "os"
+	KeySource           = "source"
 	KeyTemplate         = "template"
 	KeyTimeouts         = "timeouts"
 	KeySize             = "size"

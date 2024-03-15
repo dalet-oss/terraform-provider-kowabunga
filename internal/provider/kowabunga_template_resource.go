@@ -41,6 +41,7 @@ type TemplateResourceModel struct {
 	Desc     types.String   `tfsdk:"desc"`
 	Pool     types.String   `tfsdk:"pool"`
 	OS       types.String   `tfsdk:"os"`
+	Source   types.String   `tfsdk:"source"`
 	Default  types.Bool     `tfsdk:"default"`
 }
 
@@ -70,6 +71,10 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 				Optional:            true,
 				Default:             stringdefault.StaticString(TemplateDefaultValueOS),
 			},
+			KeySource: schema.StringAttribute{
+				MarkdownDescription: "The template HTTP(S) source URL.",
+				Required:            true,
+			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set template as zone's default one (default: **false**). The first template to be created is always considered as default.",
 				Computed:            true,
@@ -87,6 +92,7 @@ func templateResourceToModel(d *TemplateResourceModel) sdk.Template {
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
 		Os:          d.OS.ValueStringPointer(),
+		Source:      d.Source.ValueString(),
 	}
 }
 
@@ -107,6 +113,7 @@ func templateModelToResource(r *sdk.Template, d *TemplateResourceModel) {
 	} else {
 		d.OS = types.StringValue(TemplateDefaultValueOS)
 	}
+	d.Source = types.StringValue(r.Source)
 }
 
 func (r *TemplateResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
