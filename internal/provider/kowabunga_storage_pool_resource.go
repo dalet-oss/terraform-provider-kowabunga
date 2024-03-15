@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -50,7 +50,7 @@ type StoragePoolResourceModel struct {
 	Address  types.String   `tfsdk:"address"`
 	Port     types.Int64    `tfsdk:"port"`
 	Secret   types.String   `tfsdk:"secret"`
-	Price    types.Int64    `tfsdk:"price"`
+	Price    types.Float64  `tfsdk:"price"`
 	Currency types.String   `tfsdk:"currency"`
 	Default  types.Bool     `tfsdk:"default"`
 	Agents   types.List     `tfsdk:"agents"`
@@ -101,14 +101,14 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 				Optional:            true,
 				Sensitive:           true,
 			},
-			KeyPrice: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host monthly price value (default: 0)",
+			KeyPrice: schema.Float64Attribute{
+				MarkdownDescription: "Ceph monthly price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(StoragePoolDefaultValuePrice),
+				Default:             float64default.StaticFloat64(StoragePoolDefaultValuePrice),
 			},
 			KeyCurrency: schema.StringAttribute{
-				MarkdownDescription: "libvirt host monthly price currency (default: **EUR**)",
+				MarkdownDescription: "Ceph monthly price currency (default: **EUR**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             stringdefault.StaticString(StoragePoolDefaultValueCurrency),
@@ -132,7 +132,7 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 // converts storage pool from Terraform model to Kowabunga API model
 func storagePoolResourceToModel(d *StoragePoolResourceModel) sdk.StoragePool {
 	cost := sdk.Cost{
-		Price:    float32(d.Price.ValueInt64()),
+		Price:    float32(d.Price.ValueFloat64()),
 		Currency: d.Currency.ValueString(),
 	}
 
@@ -179,7 +179,7 @@ func storagePoolModelToResource(r *sdk.StoragePool, d *StoragePoolResourceModel)
 	} else {
 		d.Secret = types.StringValue("")
 	}
-	d.Price = types.Int64Value(int64(r.Cost.Price))
+	d.Price = types.Float64Value(float64(r.Cost.Price))
 	d.Currency = types.StringValue(r.Cost.Currency)
 	agents := []attr.Value{}
 	for _, a := range r.Agents {

@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,6 +21,7 @@ import (
 const (
 	HostResourceName = "host"
 
+	HostDefaultValueCurrent          = "EUR"
 	HostDefaultValueCpuOverCommit    = 3
 	HostDefaultValueMemoryOverCommit = 2
 )
@@ -41,8 +43,8 @@ type HostResourceModel struct {
 	Name             types.String   `tfsdk:"name"`
 	Desc             types.String   `tfsdk:"desc"`
 	Zone             types.String   `tfsdk:"zone"`
-	CpuPrice         types.Int64    `tfsdk:"cpu_price"`
-	MemoryPrice      types.Int64    `tfsdk:"memory_price"`
+	CpuPrice         types.Float64  `tfsdk:"cpu_price"`
+	MemoryPrice      types.Float64  `tfsdk:"memory_price"`
 	Currency         types.String   `tfsdk:"currency"`
 	CpuOvercommit    types.Int64    `tfsdk:"cpu_overcommit"`
 	MemoryOvercommit types.Int64    `tfsdk:"memory_overcommit"`
@@ -69,32 +71,32 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
 			},
-			KeyCpuPrice: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host monthly CPU price value (default: 0)",
+			KeyCpuPrice: schema.Float64Attribute{
+				MarkdownDescription: "Host monthly CPU price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             float64default.StaticFloat64(0),
 			},
-			KeyMemoryPrice: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host monthly Memory price value (default: 0)",
+			KeyMemoryPrice: schema.Float64Attribute{
+				MarkdownDescription: "Host monthly Memory price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(0),
+				Default:             float64default.StaticFloat64(0),
 			},
 			KeyCurrency: schema.StringAttribute{
-				MarkdownDescription: "libvirt host monthly price currency (default: **EUR**)",
+				MarkdownDescription: "Host monthly price currency (default: **EUR**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString("EUR"),
+				Default:             stringdefault.StaticString(HostDefaultValueCurrent),
 			},
 			KeyCpuOvercommit: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host CPU over-commit factor (default: 3)",
+				MarkdownDescription: "Host CPU over-commit factor (default: 3)",
 				Computed:            true,
 				Optional:            true,
 				Default:             int64default.StaticInt64(HostDefaultValueCpuOverCommit),
 			},
 			KeyMemoryOvercommit: schema.Int64Attribute{
-				MarkdownDescription: "libvirt host Memory over-commit factor (default: 2)",
+				MarkdownDescription: "Host Memory over-commit factor (default: 2)",
 				Computed:            true,
 				Optional:            true,
 				Default:             int64default.StaticInt64(HostDefaultValueMemoryOverCommit),
@@ -118,11 +120,11 @@ func hostResourceToModel(d *HostResourceModel) sdk.Host {
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
 		CpuCost: sdk.Cost{
-			Price:    float32(d.CpuPrice.ValueInt64()),
+			Price:    float32(d.CpuPrice.ValueFloat64()),
 			Currency: d.Currency.ValueString(),
 		},
 		MemoryCost: sdk.Cost{
-			Price:    float32(d.MemoryPrice.ValueInt64()),
+			Price:    float32(d.MemoryPrice.ValueFloat64()),
 			Currency: d.Currency.ValueString(),
 		},
 		OvercommitCpuRatio:    d.CpuOvercommit.ValueInt64Pointer(),
@@ -143,9 +145,9 @@ func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
 	} else {
 		d.Desc = types.StringValue("")
 	}
-	d.CpuPrice = types.Int64Value(int64(r.CpuCost.Price))
+	d.CpuPrice = types.Float64Value(float64(r.CpuCost.Price))
 	d.Currency = types.StringValue(r.CpuCost.Currency)
-	d.MemoryPrice = types.Int64Value(int64(r.MemoryCost.Price))
+	d.MemoryPrice = types.Float64Value(float64(r.MemoryCost.Price))
 	if r.OvercommitCpuRatio != nil {
 		d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCpuRatio)
 	} else {
