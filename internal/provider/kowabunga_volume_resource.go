@@ -10,15 +10,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 const (
 	VolumeResourceName = "volume"
-
-	VolumeDefaultValueResizable = false
 )
 
 var _ resource.Resource = &VolumeResource{}
@@ -33,17 +30,16 @@ type VolumeResource struct {
 }
 
 type VolumeResourceModel struct {
-	ID        types.String   `tfsdk:"id"`
-	Timeouts  timeouts.Value `tfsdk:"timeouts"`
-	Name      types.String   `tfsdk:"name"`
-	Desc      types.String   `tfsdk:"desc"`
-	Project   types.String   `tfsdk:"project"`
-	Zone      types.String   `tfsdk:"zone"`
-	Pool      types.String   `tfsdk:"pool"`
-	Template  types.String   `tfsdk:"template"`
-	Type      types.String   `tfsdk:"type"`
-	Size      types.Int64    `tfsdk:"size"`
-	Resizable types.Bool     `tfsdk:"resizable"`
+	ID       types.String   `tfsdk:"id"`
+	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Name     types.String   `tfsdk:"name"`
+	Desc     types.String   `tfsdk:"desc"`
+	Project  types.String   `tfsdk:"project"`
+	Zone     types.String   `tfsdk:"zone"`
+	Pool     types.String   `tfsdk:"pool"`
+	Template types.String   `tfsdk:"template"`
+	Type     types.String   `tfsdk:"type"`
+	Size     types.Int64    `tfsdk:"size"`
 }
 
 func (r *VolumeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -86,12 +82,6 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "The volume size (expressed in GB)",
 				Required:            true,
 			},
-			KeyResizable: schema.BoolAttribute{
-				MarkdownDescription: "Is the storage volume allowed to grow (filesystem dependant) ? (default: **false**)",
-				Computed:            true,
-				Optional:            true,
-				Default:             booldefault.StaticBool(VolumeDefaultValueResizable),
-			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
@@ -104,7 +94,6 @@ func volumeResourceToModel(d *VolumeResourceModel) sdk.Volume {
 		Description: d.Desc.ValueStringPointer(),
 		Type:        d.Type.ValueString(),
 		Size:        d.Size.ValueInt64() * HelperGbToBytes,
-		Resizable:   d.Resizable.ValueBoolPointer(),
 	}
 }
 
@@ -118,11 +107,6 @@ func volumeModelToResource(r *sdk.Volume, d *VolumeResourceModel) {
 	}
 	d.Type = types.StringValue(r.Type)
 	d.Size = types.Int64Value(r.Size / HelperGbToBytes)
-	if r.Resizable != nil {
-		d.Resizable = types.BoolPointerValue(r.Resizable)
-	} else {
-		d.Resizable = types.BoolValue(VolumeDefaultValueResizable)
-	}
 }
 
 func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
