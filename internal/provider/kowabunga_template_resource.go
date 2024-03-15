@@ -19,7 +19,6 @@ import (
 const (
 	TemplateResourceName = "template"
 
-	TemplateDefaultValueType    = "os"
 	TemplateDefaultValueOS      = "linux"
 	TemplateDefaultValueDefault = false
 )
@@ -41,7 +40,6 @@ type TemplateResourceModel struct {
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
 	Pool     types.String   `tfsdk:"pool"`
-	Type     types.String   `tfsdk:"type"`
 	OS       types.String   `tfsdk:"os"`
 	Default  types.Bool     `tfsdk:"default"`
 }
@@ -66,12 +64,6 @@ func (r *TemplateResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "Associated storage pool name or ID",
 				Required:            true,
 			},
-			KeyType: schema.StringAttribute{
-				MarkdownDescription: "The template type (valid options: 'os', 'raw'). Defaults to **os**.",
-				Computed:            true,
-				Optional:            true,
-				Default:             stringdefault.StaticString(TemplateDefaultValueType),
-			},
 			KeyOS: schema.StringAttribute{
 				MarkdownDescription: "The template type (valid options: 'linux', 'windows'). Defaults to **linux**.",
 				Computed:            true,
@@ -94,7 +86,6 @@ func templateResourceToModel(d *TemplateResourceModel) sdk.Template {
 	return sdk.Template{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
-		Type:        d.Type.ValueStringPointer(),
 		Os:          d.OS.ValueStringPointer(),
 	}
 }
@@ -110,11 +101,6 @@ func templateModelToResource(r *sdk.Template, d *TemplateResourceModel) {
 		d.Desc = types.StringPointerValue(r.Description)
 	} else {
 		d.Desc = types.StringValue("")
-	}
-	if r.Type != nil {
-		d.Type = types.StringPointerValue(r.Type)
-	} else {
-		d.Type = types.StringValue(TemplateDefaultValueType)
 	}
 	if r.Os != nil {
 		d.OS = types.StringPointerValue(r.Os)
