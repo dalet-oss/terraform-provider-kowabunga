@@ -147,7 +147,7 @@ func (r *AgentResource) Create(ctx context.Context, req resource.CreateRequest, 
 	agentModelToResource(agent, data) // read back resulting object
 
 	// create a new authentication token
-	token, _, err := r.Data.K.AgentAPI.SetApiToken(ctx, *agent.Id).Expire(false).Execute()
+	token, _, err := r.Data.K.AgentAPI.SetAgentApiToken(ctx, *agent.Id).Expire(false).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
