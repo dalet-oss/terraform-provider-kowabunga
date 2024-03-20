@@ -47,7 +47,7 @@ type StorageNfsResourceModel struct {
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
-	Zone     types.String   `tfsdk:"zone"`
+	Region   types.String   `tfsdk:"region"`
 	Endpoint types.String   `tfsdk:"endpoint"`
 	FS       types.String   `tfsdk:"fs"`
 	Backends types.List     `tfsdk:"backends"`
@@ -71,8 +71,8 @@ func (r *StorageNfsResource) Schema(ctx context.Context, req resource.SchemaRequ
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages an NFS storage resource",
 		Attributes: map[string]schema.Attribute{
-			KeyZone: schema.StringAttribute{
-				MarkdownDescription: "Associated zone name or ID",
+			KeyRegion: schema.StringAttribute{
+				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyEndpoint: schema.StringAttribute{
@@ -104,7 +104,7 @@ func (r *StorageNfsResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Default: int64default.StaticInt64(StorageNfsDefaultValueGaneshaApiPortDefault),
 			},
 			KeyDefault: schema.BoolAttribute{
-				MarkdownDescription: "Whether to set NFS storage as zone's default one (default: **false**). First NFS storage to be created is always considered as default's one.",
+				MarkdownDescription: "Whether to set NFS storage as region's default one (default: **false**). First NFS storage to be created is always considered as default's one.",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(StorageNfsDefaultValueDefault),
@@ -178,22 +178,22 @@ func (r *StorageNfsResource) Create(ctx context.Context, req resource.CreateRequ
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	// find parent zone
-	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
+	// find parent region
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new NFS storage
 	m := storageNfsResourceToModel(data)
-	nfs, _, err := r.Data.K.ZoneAPI.CreateStorageNFS(ctx, zoneId).StorageNFS(m).Execute()
+	nfs, _, err := r.Data.K.RegionAPI.CreateStorageNFS(ctx, regionId).StorageNFS(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// set NFS storage as default
 	if data.Default.ValueBool() {
-		_, err = r.Data.K.ZoneAPI.SetZoneDefaultStorageNFS(ctx, zoneId, *nfs.Id).Execute()
+		_, err = r.Data.K.RegionAPI.SetRegionDefaultStorageNFS(ctx, regionId, *nfs.Id).Execute()
 		if err != nil {
 			errorCreateGeneric(resp, err)
 			return

@@ -45,7 +45,7 @@ type StoragePoolResourceModel struct {
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
-	Zone     types.String   `tfsdk:"zone"`
+	Region   types.String   `tfsdk:"region"`
 	Pool     types.String   `tfsdk:"pool"`
 	Address  types.String   `tfsdk:"address"`
 	Port     types.Int64    `tfsdk:"port"`
@@ -72,8 +72,8 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a storage pool resource",
 		Attributes: map[string]schema.Attribute{
-			KeyZone: schema.StringAttribute{
-				MarkdownDescription: "Associated zone name or ID",
+			KeyRegion: schema.StringAttribute{
+				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyPool: schema.StringAttribute{
@@ -114,7 +114,7 @@ func (r *StoragePoolResource) Schema(ctx context.Context, req resource.SchemaReq
 				Default:             stringdefault.StaticString(StoragePoolDefaultValueCurrency),
 			},
 			KeyDefault: schema.BoolAttribute{
-				MarkdownDescription: "Whether to set pool as zone's default one (default: **false**). First pool to be created is always considered as default's one.",
+				MarkdownDescription: "Whether to set pool as region's default one (default: **false**). First pool to be created is always considered as default's one.",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(false),
@@ -206,8 +206,8 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	// find parent zone
-	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
+	// find parent region
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
@@ -215,14 +215,14 @@ func (r *StoragePoolResource) Create(ctx context.Context, req resource.CreateReq
 
 	// create a new storage pool
 	m := storagePoolResourceToModel(data)
-	pool, _, err := r.Data.K.ZoneAPI.CreateStoragePool(ctx, zoneId).StoragePool(m).Execute()
+	pool, _, err := r.Data.K.RegionAPI.CreateStoragePool(ctx, regionId).StoragePool(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// set storage pool as default
 	if data.Default.ValueBool() {
-		_, err = r.Data.K.ZoneAPI.SetZoneDefaultStoragePool(ctx, zoneId, *pool.Id).Execute()
+		_, err = r.Data.K.RegionAPI.SetRegionDefaultStoragePool(ctx, regionId, *pool.Id).Execute()
 		if err != nil {
 			errorCreateGeneric(resp, err)
 			return
