@@ -9,12 +9,9 @@ import (
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -24,6 +21,7 @@ const (
 	UserResourceName = "user"
 
 	UserDefaultValueNotifications = false
+	UserDefaultValueBot           = false
 )
 
 var _ resource.Resource = &UserResource{}
@@ -48,9 +46,9 @@ type UserResourceModel struct {
 	Timeouts      timeouts.Value `tfsdk:"timeouts"`
 	Name          types.String   `tfsdk:"name"`
 	Email         types.String   `tfsdk:"email"`
-	Password      types.String   `tfsdk:"password"`
 	Role          types.String   `tfsdk:"role"`
 	Notifications types.Bool     `tfsdk:"notifications"`
+	Bot           types.Bool     `tfsdk:"bot"`
 }
 
 func (r *UserResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -59,7 +57,6 @@ func (r *UserResource) Metadata(ctx context.Context, req resource.MetadataReques
 
 func (r *UserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
-	resource.ImportStatePassthroughID(ctx, path.Root(KeyPassword), req, resp)
 }
 
 func (r *UserResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -77,14 +74,6 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 					&stringUserEmailValidator{},
 				},
 			},
-			KeyPassword: schema.StringAttribute{
-				MarkdownDescription: "Kowabunga user password",
-				Required:            true,
-				Sensitive:           true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
 			KeyRole: schema.StringAttribute{
 				MarkdownDescription: "Kowabunga user role (" + strings.Join(userSupportedRoles, ", ") + ")",
 				Required:            true,
@@ -98,6 +87,12 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 				Default:             booldefault.StaticBool(UserDefaultValueNotifications),
 			},
+			KeyBot: schema.BoolAttribute{
+				MarkdownDescription: "Whether Kowabunga user is actually a robot account (default: **false**)",
+				Computed:            true,
+				Optional:            true,
+				Default:             booldefault.StaticBool(UserDefaultValueBot),
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
@@ -108,7 +103,6 @@ func userResourceToModel(d *UserResourceModel) sdk.User {
 	return sdk.User{
 		Name:          d.Name.ValueString(),
 		Email:         d.Email.ValueString(),
-		Password:      d.Password.ValueString(),
 		Role:          d.Role.ValueString(),
 		Notifications: d.Notifications.ValueBoolPointer(),
 	}
@@ -122,7 +116,6 @@ func userModelToResource(r *sdk.User, d *UserResourceModel) {
 
 	d.Name = types.StringValue(r.Name)
 	d.Email = types.StringValue(r.Email)
-	d.Password = types.StringValue(r.Password)
 	d.Role = types.StringValue(r.Role)
 	if r.Notifications != nil {
 		d.Notifications = types.BoolPointerValue(r.Notifications)
@@ -130,15 +123,6 @@ func userModelToResource(r *sdk.User, d *UserResourceModel) {
 		d.Notifications = types.BoolValue(UserDefaultValueNotifications)
 	}
 }
-
-// converts token from Kowabunga API model to Terraform model
-// func tokenModelToUserResource(r *sdk.ApiToken, d *UserResourceModel) {
-// 	if r == nil {
-// 		return
-// 	}
-
-// 	d.ApiKey = types.StringPointerValue(r.ApiKey)
-// }
 
 func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data *UserResourceModel
@@ -167,13 +151,21 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	data.ID = types.StringPointerValue(user.Id)
 	userModelToResource(user, data) // read back resulting object
 
-	// create a new authentication token
-	// token, _, err := r.Data.K.UserAPI.SetUserApiToken(ctx, *user.Id).Expire(false).Execute()
-	// if err != nil {
-	// 	errorCreateGeneric(resp, err)
-	// 	return
-	// }
-	// tokenModelToUserResource(token, data) // read back resulting object
+	if data.Bot.ValueBool() {
+		// request server to generate a new robot API key, will be sent by email
+		_, err = r.Data.K.UserAPI.SetUserApiToken(ctx, *user.Id).Execute()
+		if err != nil {
+			errorCreateGeneric(resp, err)
+			return
+		}
+	} else {
+		// request server to generate a new user password, will be sent by email
+		_, err = r.Data.K.UserAPI.ResetUserPassword(ctx, *user.Id).Execute()
+		if err != nil {
+			errorCreateGeneric(resp, err)
+			return
+		}
+	}
 
 	tflog.Trace(ctx, "created user resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

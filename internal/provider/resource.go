@@ -95,9 +95,9 @@ const (
 	KeyAccessType       = "access_type"
 	KeyAgents           = "agents"
 	KeyApiKey           = "api_key"
-	KeyPassword         = "password"
 	KeyRole             = "role"
 	KeyNotifications    = "notifications"
+	KeyBot              = "bot"
 )
 
 const (
