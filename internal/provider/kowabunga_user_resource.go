@@ -45,6 +45,7 @@ type UserResourceModel struct {
 	ID            types.String   `tfsdk:"id"`
 	Timeouts      timeouts.Value `tfsdk:"timeouts"`
 	Name          types.String   `tfsdk:"name"`
+	Desc          types.String   `tfsdk:"desc"` // useless but kept for compatibility
 	Email         types.String   `tfsdk:"email"`
 	Role          types.String   `tfsdk:"role"`
 	Notifications types.Bool     `tfsdk:"notifications"`
@@ -82,7 +83,7 @@ func (r *UserResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			KeyNotifications: schema.BoolAttribute{
-				MarkdownDescription: "Whether Kowabunga user wants email notifications en events (default: **false**)",
+				MarkdownDescription: "Whether Kowabunga user wants email notifications on events (default: **false**)",
 				Computed:            true,
 				Optional:            true,
 				Default:             booldefault.StaticBool(UserDefaultValueNotifications),
