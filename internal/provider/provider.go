@@ -124,6 +124,7 @@ func (p *KowabungaProvider) Configure(ctx context.Context, req provider.Configur
 func (p *KowabungaProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewAgentResource,
+		NewUserResource,
 		NewRegionResource,
 		NewZoneResource,
 		NewNetGWResource,

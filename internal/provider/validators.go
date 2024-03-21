@@ -7,12 +7,80 @@ import (
 	"strconv"
 	"strings"
 
+	emailverifier "github.com/AfterShip/email-verifier"
+
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
 const (
 	AgentTypeDesc = "Kowabunga remote agent type must be one of the following: "
+	UserRoleDesc  = "Kowabunga user role type must be one of the following: "
+	UserEmailDesc = "Kowabunga user email is malformed"
 )
+
+// Kowabunga User Role Validator
+type stringUserRoleValidator struct{}
+
+func (v stringUserRoleValidator) Description(ctx context.Context) string {
+	return UserRoleDesc + strings.Join(userSupportedRoles, ", ")
+}
+
+func (v stringUserRoleValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v stringUserRoleValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
+		return
+	}
+
+	verifier := emailverifier.NewVerifier()
+	ret, err := verifier.Verify(req.ConfigValue.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Unsupported user email",
+			fmt.Sprintf("Unsupported user email %s", req.ConfigValue.ValueString()),
+		)
+		return
+	}
+	if !ret.Syntax.Valid {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Malformed user email",
+			fmt.Sprintf("User email address %s syntax is invalid", req.ConfigValue.ValueString()),
+		)
+		return
+	}
+}
+
+// Kowabunga User Email Validator
+type stringUserEmailValidator struct{}
+
+func (v stringUserEmailValidator) Description(ctx context.Context) string {
+	return UserEmailDesc
+}
+
+func (v stringUserEmailValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v stringUserEmailValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
+		return
+	}
+
+	if !slices.Contains(userSupportedRoles, req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Unsupported user role",
+			fmt.Sprintf("Unsupported user role %s", req.ConfigValue.ValueString()),
+		)
+		return
+	}
+}
 
 // Kowabunga Agent Type Validator
 type stringAgentTypeValidator struct{}
@@ -35,7 +103,7 @@ func (v stringAgentTypeValidator) ValidateString(ctx context.Context, req valida
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
 			"Unsupported agent type",
-			fmt.Sprintf("Unsupported agent type %s: ", req.ConfigValue.ValueString()),
+			fmt.Sprintf("Unsupported agent type %s", req.ConfigValue.ValueString()),
 		)
 		return
 	}
