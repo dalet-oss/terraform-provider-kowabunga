@@ -125,6 +125,7 @@ func (p *KowabungaProvider) Resources(ctx context.Context) []func() resource.Res
 	return []func() resource.Resource{
 		NewAgentResource,
 		NewUserResource,
+		NewGroupResource,
 		NewRegionResource,
 		NewZoneResource,
 		NewNetGWResource,

@@ -98,6 +98,7 @@ const (
 	KeyRole             = "role"
 	KeyNotifications    = "notifications"
 	KeyBot              = "bot"
+	KeyUsers            = "users"
 )
 
 const (
