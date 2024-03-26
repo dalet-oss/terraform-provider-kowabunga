@@ -94,7 +94,6 @@ const (
 	KeyNfs              = "nfs"
 	KeyAccessType       = "access_type"
 	KeyAgents           = "agents"
-	KeyApiKey           = "api_key"
 	KeyRole             = "role"
 	KeyNotifications    = "notifications"
 	KeyBot              = "bot"

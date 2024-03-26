@@ -9,11 +9,8 @@ import (
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -46,7 +43,6 @@ type AgentResourceModel struct {
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
 	Type     types.String   `tfsdk:"type"`
-	ApiKey   types.String   `tfsdk:"api_key"`
 }
 
 func (r *AgentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -55,7 +51,6 @@ func (r *AgentResource) Metadata(ctx context.Context, req resource.MetadataReque
 
 func (r *AgentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
-	resource.ImportStatePassthroughID(ctx, path.Root(KeyApiKey), req, resp)
 }
 
 func (r *AgentResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -71,14 +66,6 @@ func (r *AgentResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Required:            true,
 				Validators: []validator.String{
 					&stringAgentTypeValidator{},
-				},
-			},
-			KeyApiKey: schema.StringAttribute{
-				MarkdownDescription: "API Key (read-only)",
-				Computed:            true,
-				Sensitive:           false,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 		},
@@ -115,8 +102,6 @@ func tokenModelToAgentResource(r *sdk.ApiToken, d *AgentResourceModel) {
 	if r == nil {
 		return
 	}
-
-	d.ApiKey = types.StringPointerValue(r.ApiKey)
 }
 
 func (r *AgentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
