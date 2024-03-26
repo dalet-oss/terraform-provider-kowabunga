@@ -48,6 +48,7 @@ type StorageNfsResourceModel struct {
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
 	Region   types.String   `tfsdk:"region"`
+	Pool     types.String   `tfsdk:"pool"`
 	Endpoint types.String   `tfsdk:"endpoint"`
 	FS       types.String   `tfsdk:"fs"`
 	Backends types.List     `tfsdk:"backends"`
@@ -74,6 +75,10 @@ func (r *StorageNfsResource) Schema(ctx context.Context, req resource.SchemaRequ
 			KeyRegion: schema.StringAttribute{
 				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
+			},
+			KeyPool: schema.StringAttribute{
+				MarkdownDescription: "Associated storage pool name or ID (region's default if unspecified)",
+				Optional:            true,
 			},
 			KeyEndpoint: schema.StringAttribute{
 				MarkdownDescription: "NFS storage associated FQDN",
@@ -184,9 +189,17 @@ func (r *StorageNfsResource) Create(ctx context.Context, req resource.CreateRequ
 		errorCreateGeneric(resp, err)
 		return
 	}
+	// find parent pool (optional)
+	poolId, _ := getPoolID(ctx, r.Data, data.Pool.ValueString())
+
 	// create a new NFS storage
 	m := storageNfsResourceToModel(data)
-	nfs, _, err := r.Data.K.RegionAPI.CreateStorageNFS(ctx, regionId).StorageNFS(m).Execute()
+	api := r.Data.K.RegionAPI.CreateStorageNFS(ctx, regionId).StorageNFS(m)
+	if poolId != "" {
+		api = api.PoolId(poolId)
+	}
+
+	nfs, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
