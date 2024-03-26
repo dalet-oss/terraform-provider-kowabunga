@@ -99,6 +99,7 @@ const (
 	KeyNotifications    = "notifications"
 	KeyBot              = "bot"
 	KeyUsers            = "users"
+	KeyGroups           = "groups"
 )
 
 const (

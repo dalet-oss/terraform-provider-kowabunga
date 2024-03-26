@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"sort"
 
 	"golang.org/x/exp/maps"
 
@@ -49,8 +50,6 @@ type ProjectResourceModel struct {
 	Timeouts       timeouts.Value `tfsdk:"timeouts"`
 	Name           types.String   `tfsdk:"name"`
 	Desc           types.String   `tfsdk:"desc"`
-	Owner          types.String   `tfsdk:"owner"`
-	Email          types.String   `tfsdk:"email"`
 	Domain         types.String   `tfsdk:"domain"`
 	SubnetSize     types.Int64    `tfsdk:"subnet_size"`
 	RootPassword   types.String   `tfsdk:"root_password"`
@@ -63,6 +62,7 @@ type ProjectResourceModel struct {
 	MaxStorage     types.Int64    `tfsdk:"max_storage"`
 	MaxVCPUs       types.Int64    `tfsdk:"max_vcpus"`
 	PrivateSubnets types.Map      `tfsdk:"private_subnets"`
+	Groups         types.List     `tfsdk:"groups"`
 }
 
 type ProjectQuotaModel struct {
@@ -85,14 +85,6 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a project resource",
 		Attributes: map[string]schema.Attribute{
-			KeyOwner: schema.StringAttribute{
-				MarkdownDescription: "Owner of the project.",
-				Required:            true,
-			},
-			KeyEmail: schema.StringAttribute{
-				MarkdownDescription: "Email associated to the project to receive notifications.",
-				Required:            true,
-			},
 			KeyDomain: schema.StringAttribute{
 				MarkdownDescription: "Internal domain name associated to the project (e.g. myproject.acme.com). (default: none)",
 				Optional:            true,
@@ -166,6 +158,11 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "List of project's private subnets zones association (read-only)",
 				ElementType:         types.StringType,
 			},
+			KeyGroups: schema.ListAttribute{
+				MarkdownDescription: "The list of user groups allowed to administrate the project (i.e. capable of managing internal resources)",
+				ElementType:         types.StringType,
+				Required:            true,
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
@@ -197,11 +194,13 @@ func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 		Vcpus:     &vcpus,
 	}
 
+	groups := []string{}
+	d.Groups.ElementsAs(context.TODO(), &groups, false)
+	sort.Strings(groups)
+
 	return sdk.Project{
 		Name:            d.Name.ValueString(),
 		Description:     d.Desc.ValueStringPointer(),
-		Owner:           d.Owner.ValueString(),
-		Email:           d.Email.ValueString(),
 		Domain:          d.Domain.ValueStringPointer(),
 		RootPassword:    d.RootPassword.ValueStringPointer(),
 		BootstrapUser:   d.User.ValueStringPointer(),
@@ -209,6 +208,7 @@ func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 		Tags:            tags,
 		Metadatas:       metadatas,
 		Quotas:          quotas,
+		Groups:          groups,
 	}
 }
 
@@ -224,8 +224,6 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 	} else {
 		d.Desc = types.StringValue("")
 	}
-	d.Owner = types.StringValue(r.Owner)
-	d.Email = types.StringValue(r.Email)
 	if r.Domain != nil {
 		d.Domain = types.StringPointerValue(r.Domain)
 	} else {
@@ -274,6 +272,13 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 		}
 	}
 	d.PrivateSubnets = basetypes.NewMapValueMust(types.StringType, privateSubnets)
+
+	groups := []attr.Value{}
+	sort.Strings(r.Groups)
+	for _, g := range r.Groups {
+		groups = append(groups, types.StringValue(g))
+	}
+	d.Groups, _ = types.ListValue(types.StringType, groups)
 }
 
 func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
