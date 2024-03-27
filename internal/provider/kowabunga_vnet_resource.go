@@ -39,7 +39,7 @@ type VNetResourceModel struct {
 	Timeouts  timeouts.Value `tfsdk:"timeouts"`
 	Name      types.String   `tfsdk:"name"`
 	Desc      types.String   `tfsdk:"desc"`
-	Zone      types.String   `tfsdk:"zone"`
+	Region    types.String   `tfsdk:"region"`
 	VLAN      types.Int64    `tfsdk:"vlan"`
 	Interface types.String   `tfsdk:"interface"`
 	Private   types.Bool     `tfsdk:"private"`
@@ -61,8 +61,8 @@ func (r *VNetResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a virtual network resource",
 		Attributes: map[string]schema.Attribute{
-			KeyZone: schema.StringAttribute{
-				MarkdownDescription: "Associated zone name or ID",
+			KeyRegion: schema.StringAttribute{
+				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyVLAN: schema.Int64Attribute{
@@ -138,15 +138,15 @@ func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	// find parent zone
-	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
+	// find parent region
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new virtual network
 	m := vnetResourceToModel(data)
-	vnet, _, err := r.Data.K.ZoneAPI.CreateVNet(ctx, zoneId).VNet(m).Execute()
+	vnet, _, err := r.Data.K.RegionAPI.CreateVNet(ctx, regionId).VNet(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return

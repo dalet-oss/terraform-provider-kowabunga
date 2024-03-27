@@ -35,7 +35,7 @@ type NetGWResourceModel struct {
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
-	Zone     types.String   `tfsdk:"zone"`
+	Region   types.String   `tfsdk:"region"`
 	Agents   types.List     `tfsdk:"agents"`
 }
 
@@ -55,8 +55,8 @@ func (r *NetGWResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a netgw resource",
 		Attributes: map[string]schema.Attribute{
-			KeyZone: schema.StringAttribute{
-				MarkdownDescription: "Associated zone name or ID",
+			KeyRegion: schema.StringAttribute{
+				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyAgents: schema.ListAttribute{
@@ -119,15 +119,15 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	// find parent zone
-	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
+	// find parent region
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	// create a new network gateway
 	m := netgwResourceToModel(data)
-	netgw, _, err := r.Data.K.ZoneAPI.CreateNetGW(ctx, zoneId).NetGW(m).Execute()
+	netgw, _, err := r.Data.K.RegionAPI.CreateNetGW(ctx, regionId).NetGW(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
