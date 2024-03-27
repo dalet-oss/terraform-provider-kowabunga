@@ -97,13 +97,6 @@ func agentModelToResource(r *sdk.Agent, d *AgentResourceModel) {
 	d.Type = types.StringValue(r.Type)
 }
 
-// converts token from Kowabunga API model to Terraform model
-func tokenModelToAgentResource(r *sdk.ApiToken, d *AgentResourceModel) {
-	if r == nil {
-		return
-	}
-}
-
 func (r *AgentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data *AgentResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -132,12 +125,11 @@ func (r *AgentResource) Create(ctx context.Context, req resource.CreateRequest, 
 	agentModelToResource(agent, data) // read back resulting object
 
 	// create a new authentication token
-	token, _, err := r.Data.K.AgentAPI.SetAgentApiToken(ctx, *agent.Id).Expire(false).Execute()
+	_, _, err = r.Data.K.AgentAPI.SetAgentApiToken(ctx, *agent.Id).Expire(false).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	tokenModelToAgentResource(token, data) // read back resulting object
 
 	tflog.Trace(ctx, "created agent resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
