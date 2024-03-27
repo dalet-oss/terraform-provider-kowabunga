@@ -20,6 +20,7 @@ import (
 const (
 	VNetResourceName = "vnet"
 
+	VNetDefaultValueVlan    = 0
 	VNetDefaultValuePrivate = true
 )
 
@@ -93,7 +94,7 @@ func vnetResourceToModel(d *VNetResourceModel) sdk.VNet {
 	return sdk.VNet{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
-		Vlan:        d.VLAN.ValueInt64(),
+		Vlan:        d.VLAN.ValueInt64Pointer(),
 		Interface:   d.Interface.ValueString(),
 		Private:     d.Private.ValueBoolPointer(),
 	}
@@ -111,7 +112,11 @@ func vnetModelToResource(r *sdk.VNet, d *VNetResourceModel) {
 	} else {
 		d.Desc = types.StringValue("")
 	}
-	d.VLAN = types.Int64Value(r.Vlan)
+	if r.Vlan != nil {
+		d.VLAN = types.Int64PointerValue(r.Vlan)
+	} else {
+		d.VLAN = types.Int64Value(VNetDefaultValueVlan)
+	}
 	d.Interface = types.StringValue(r.Interface)
 	if r.Private != nil {
 		d.Private = types.BoolPointerValue(r.Private)
