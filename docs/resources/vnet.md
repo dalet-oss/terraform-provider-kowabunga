@@ -19,8 +19,8 @@ Manages a virtual network resource
 
 - `interface` (String) Host bridge network interface
 - `name` (String) Resource name
+- `region` (String) Associated region name or ID
 - `vlan` (Number) VLAN ID
-- `zone` (String) Associated zone name or ID
 
 ### Optional
 

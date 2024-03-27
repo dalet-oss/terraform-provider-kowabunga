@@ -17,22 +17,21 @@ Manages a storage pool resource
 
 ### Required
 
+- `agents` (List of String) The list of Kowabunga remote agents to be associated with the storage pool
 - `name` (String) Resource name
 - `pool` (String) Ceph RBD pool name
-- `zone` (String) Associated zone name or ID
+- `region` (String) Associated region name or ID
 
 ### Optional
 
 - `address` (String) Ceph RBD monitor address or hostname
-- `currency` (String) libvirt host monthly price currency (default: **EUR**)
-- `default` (Boolean) Whether to set pool as zone's default one (default: **false**). First pool to be created is always considered as default's one.
+- `currency` (String) Ceph monthly price currency (default: **EUR**)
+- `default` (Boolean) Whether to set pool as region's default one (default: **false**). First pool to be created is always considered as default's one.
 - `desc` (String) Resource extended description
-- `host` (String) Host to bind the storage pool to (default: none)
 - `port` (Number) Ceph RBD monitor port number
-- `price` (Number) libvirt host monthly price value (default: 0)
+- `price` (Number) Ceph monthly price value (default: 0)
 - `secret` (String, Sensitive) CephX client authentication UUID
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
-- `type` (String) Storage pool type ('local' or 'rbd', defaults to 'rbd')
 
 ### Read-Only
 

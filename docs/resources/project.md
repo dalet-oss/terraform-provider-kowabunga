@@ -17,10 +17,9 @@ Manages a project resource
 
 ### Required
 
-- `email` (String) Email associated to the project to receive notifications.
+- `groups` (List of String) The list of user groups allowed to administrate the project (i.e. capable of managing internal resources)
 - `metadata` (Map of String) List of metadatas key/value associated with the project
 - `name` (String) Resource name
-- `owner` (String) Owner of the project.
 - `tags` (List of String) List of tags associated with the project
 
 ### Optional
@@ -33,7 +32,6 @@ Manages a project resource
 - `max_memory` (Number) Project maximum usable memory (expressed in GB). Defaults to 0 (unlimited).
 - `max_storage` (Number) Project maximum usable storage (expressed in GB). Defaults to 0 (unlimited).
 - `max_vcpus` (Number) Project maximum usable virtual CPUs. Defaults to 0 (unlimited).
-- `notify` (Boolean) Whether to send email notification at creation (default: **true**)
 - `root_password` (String) The project default root password, set at cloud-init instance bootstrap phase. Will be randomly auto-generated at each instance creation if unspecified.
 - `subnet_size` (Number) Project requested VPC subnet size (defaults to /26)
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))

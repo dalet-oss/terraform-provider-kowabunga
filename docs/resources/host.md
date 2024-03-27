@@ -17,23 +17,18 @@ Manages a host resource
 
 ### Required
 
-- `address` (String) libvirt host API IPv4 address
+- `agents` (List of String) The list of Kowabunga remote agents to be associated with the host
 - `name` (String) Resource name
-- `protocol` (String) libvirt host API access protocol
 - `zone` (String) Associated zone name or ID
 
 ### Optional
 
-- `ca` (String) libvirt host API TLS CA (default: none)
-- `cert` (String) libvirt host API TLS certificate (default: none)
-- `cpu_overcommit` (Number) libvirt host CPU over-commit factor (default: 3)
-- `cpu_price` (Number) libvirt host monthly CPU price value (default: 0)
-- `currency` (String) libvirt host monthly price currency (default: **EUR**)
+- `cpu_overcommit` (Number) Host CPU over-commit factor (default: 3)
+- `cpu_price` (Number) Host monthly CPU price value (default: 0)
+- `currency` (String) Host monthly price currency (default: **EUR**)
 - `desc` (String) Resource extended description
-- `key` (String, Sensitive) libvirt host API TLS private key (default: none)
-- `memory_overcommit` (Number) libvirt host Memory over-commit factor (default: 2)
-- `memory_price` (Number) libvirt host monthly Memory price value (default: 0)
-- `port` (Number) libvirt host API port number (defaults to 0, i.e. auto-detected)
+- `memory_overcommit` (Number) Host Memory over-commit factor (default: 2)
+- `memory_price` (Number) Host monthly Memory price value (default: 0)
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only

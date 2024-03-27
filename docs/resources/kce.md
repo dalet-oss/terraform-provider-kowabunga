@@ -28,7 +28,6 @@ Manages a virtual machine KCE resource. **KCE** (stands for *Kowabunga Compute E
 
 - `desc` (String) Resource extended description
 - `extra_disk` (Number) The KCE optional data disk size (expressed in GB, disabled by default, 0 to disable)
-- `notify` (Boolean) Whether to send email notification at creation (default: **true**)
 - `pool` (String) Associated storage pool name or ID (zone's default if unspecified)
 - `public` (Boolean) Should KCE be exposed over public Internet ? (default: **false**)
 - `template` (String) Associated template name or ID (zone's default storage pool's default if unspecified)

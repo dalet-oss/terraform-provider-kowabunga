@@ -20,13 +20,14 @@ Manages an NFS storage resource
 - `backends` (List of String) List of NFS Ganesha API server IP addresses
 - `endpoint` (String) NFS storage associated FQDN
 - `name` (String) Resource name
-- `zone` (String) Associated zone name or ID
+- `region` (String) Associated region name or ID
 
 ### Optional
 
-- `default` (Boolean) Whether to set NFS storage as zone's default one (default: **false**). First NFS storage to be created is always considered as default's one.
+- `default` (Boolean) Whether to set NFS storage as region's default one (default: **false**). First NFS storage to be created is always considered as default's one.
 - `desc` (String) Resource extended description
 - `fs` (String) Underlying associated CephFS volume name (default: 'nfs')
+- `pool` (String) Associated storage pool name or ID (region's default if unspecified)
 - `port` (Number) NFS Ganesha API server port (default 54934)
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 

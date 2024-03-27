@@ -19,6 +19,7 @@ Manages a storage pool's template resource
 
 - `name` (String) Resource name
 - `pool` (String) Associated storage pool name or ID
+- `source` (String) The template HTTP(S) source URL.
 
 ### Optional
 
@@ -26,7 +27,6 @@ Manages a storage pool's template resource
 - `desc` (String) Resource extended description
 - `os` (String) The template type (valid options: 'linux', 'windows'). Defaults to **linux**.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
-- `type` (String) The template type (valid options: 'os', 'raw'). Defaults to **os**.
 
 ### Read-Only
 

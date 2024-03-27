@@ -28,7 +28,6 @@ Manages a raw virtual machine instance resource. Usage of instance resource requ
 ### Optional
 
 - `desc` (String) Resource extended description
-- `notify` (Boolean) Whether to send email notification at creation (default: **true**)
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only

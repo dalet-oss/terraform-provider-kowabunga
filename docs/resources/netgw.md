@@ -17,15 +17,13 @@ Manages a netgw resource
 
 ### Required
 
-- `address` (String) Network gateway IPv4 address
+- `agents` (List of String) The list of Kowabunga remote agents to be associated with the network gateway
 - `name` (String) Resource name
-- `token` (String, Sensitive) Network gateway API token
-- `zone` (String) Associated zone name or ID
+- `region` (String) Associated region name or ID
 
 ### Optional
 
 - `desc` (String) Resource extended description
-- `port` (Number) Network gateway API port number
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
