@@ -22,6 +22,7 @@ const (
 	KeyName             = "name"
 	KeyDesc             = "desc"
 	KeyRegion           = "region"
+	KeyRegions          = "regions"
 	KeyZone             = "zone"
 	KeyToken            = "token"
 	KeyProtocols        = "protocols"

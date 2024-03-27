@@ -63,6 +63,7 @@ type ProjectResourceModel struct {
 	MaxVCPUs       types.Int64    `tfsdk:"max_vcpus"`
 	PrivateSubnets types.Map      `tfsdk:"private_subnets"`
 	Groups         types.List     `tfsdk:"groups"`
+	Regions        types.List     `tfsdk:"regions"`
 }
 
 type ProjectQuotaModel struct {
@@ -163,6 +164,11 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				ElementType:         types.StringType,
 				Required:            true,
 			},
+			KeyRegions: schema.ListAttribute{
+				MarkdownDescription: "The list of regions the project is managing resources from (subnets will be pre-allocated in all referenced regions)",
+				ElementType:         types.StringType,
+				Required:            true,
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
@@ -198,6 +204,10 @@ func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 	d.Groups.ElementsAs(context.TODO(), &groups, false)
 	sort.Strings(groups)
 
+	regions := []string{}
+	d.Regions.ElementsAs(context.TODO(), &regions, false)
+	sort.Strings(regions)
+
 	return sdk.Project{
 		Name:            d.Name.ValueString(),
 		Description:     d.Desc.ValueStringPointer(),
@@ -209,6 +219,7 @@ func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 		Metadatas:       metadatas,
 		Quotas:          quotas,
 		Groups:          groups,
+		Regions:         regions,
 	}
 }
 
@@ -279,6 +290,13 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 		groups = append(groups, types.StringValue(g))
 	}
 	d.Groups, _ = types.ListValue(types.StringType, groups)
+
+	regions := []attr.Value{}
+	sort.Strings(r.Regions)
+	for _, r := range r.Regions {
+		regions = append(regions, types.StringValue(r))
+	}
+	d.Regions, _ = types.ListValue(types.StringType, regions)
 }
 
 func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
