@@ -147,5 +147,12 @@ func (p *KowabungaProvider) Resources(ctx context.Context) []func() resource.Res
 }
 
 func (p *KowabungaProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewRegionDataSource,
+		NewRegionsDataSource,
+		NewZoneDataSource,
+		NewZonesDataSource,
+		NewGroupDataSource,
+		NewGroupsDataSource,
+	}
 }
