@@ -40,7 +40,7 @@ type KgwResourceModel struct {
 	Desc     types.String   `tfsdk:"desc"`
 	Project  types.String   `tfsdk:"project"`
 
-	Zone      types.String `tfsdk:"zone"`
+	Region    types.String `tfsdk:"region"`
 	PublicIp  types.String `tfsdk:"public_ip"`
 	PrivateIp types.String `tfsdk:"private_ip"`
 	Nats      types.List   `tfsdk:"nats"`
@@ -74,8 +74,8 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated project name or ID",
 				Required:            true,
 			},
-			KeyZone: schema.StringAttribute{
-				MarkdownDescription: "Associated zone name or ID",
+			KeyRegion: schema.StringAttribute{
+				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyPublicIp: schema.StringAttribute{
@@ -240,8 +240,8 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-	// find parent zone
-	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
+	// find parent region
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
@@ -249,7 +249,7 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 	m := kgwResourceToModel(&ctx, data)
 
 	// create a new KGW
-	kgw, _, err := r.Data.K.ProjectAPI.CreateProjectZoneKGW(ctx, projectId, zoneId).KGW(m).Execute()
+	kgw, _, err := r.Data.K.ProjectAPI.CreateProjectRegionKGW(ctx, projectId, regionId).KGW(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
