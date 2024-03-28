@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -158,6 +159,9 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Computed:            true,
 				MarkdownDescription: "List of project's private subnets zones association (read-only)",
 				ElementType:         types.StringType,
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 			KeyGroups: schema.ListAttribute{
 				MarkdownDescription: "The list of user groups allowed to administrate the project (i.e. capable of managing internal resources)",
