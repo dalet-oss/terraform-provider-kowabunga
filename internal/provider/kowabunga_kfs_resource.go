@@ -44,7 +44,7 @@ type KfsResourceModel struct {
 	Name      types.String   `tfsdk:"name"`
 	Desc      types.String   `tfsdk:"desc"`
 	Project   types.String   `tfsdk:"project"`
-	Zone      types.String   `tfsdk:"zone"`
+	Region    types.String   `tfsdk:"region"`
 	Nfs       types.String   `tfsdk:"nfs"`
 	Access    types.String   `tfsdk:"access_type"`
 	Protocols types.List     `tfsdk:"protocols"`
@@ -79,8 +79,8 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated project name or ID",
 				Required:            true,
 			},
-			KeyZone: schema.StringAttribute{
-				MarkdownDescription: "Associated zone name or ID",
+			KeyRegion: schema.StringAttribute{
+				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyNfs: schema.StringAttribute{
@@ -186,7 +186,7 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 	// find parent zone
-	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
@@ -196,7 +196,7 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// create a new KFS
 	m := kfsResourceToModel(data)
-	api := r.Data.K.ProjectAPI.CreateProjectZoneKFS(ctx, projectId, zoneId).KFS(m)
+	api := r.Data.K.ProjectAPI.CreateProjectRegionKFS(ctx, projectId, regionId).KFS(m)
 	if nfsId != "" {
 		api = api.NfsId(nfsId)
 	}
