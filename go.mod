@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/3th1nk/cidr v0.2.0
 	github.com/AfterShip/email-verifier v1.4.0
-	github.com/dalet-oss/kowabunga-api v0.20.9
+	github.com/dalet-oss/kowabunga-api v0.30.0
 	github.com/hashicorp/terraform-plugin-docs v0.16.0
 	github.com/hashicorp/terraform-plugin-framework v1.4.2
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.4.1
@@ -13,8 +13,6 @@ require (
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 )
-
-replace github.com/dalet-oss/kowabunga-api => /Users/ben/Development/Dalet/kowabunga-api
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect

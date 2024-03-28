@@ -18,7 +18,7 @@ Manages a KGW resource. **KGW** (stands for *Kowabunga Gateway*) is a resource t
 ### Required
 
 - `project` (String) Associated project name or ID
-- `zone` (String) Associated zone name or ID
+- `region` (String) Associated region name or ID
 
 ### Optional
 

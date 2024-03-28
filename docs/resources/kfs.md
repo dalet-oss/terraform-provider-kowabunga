@@ -19,7 +19,7 @@ Manages a KFS distributed network storage resource. **KFS** (stands for *Kowabun
 
 - `name` (String) Resource name
 - `project` (String) Associated project name or ID
-- `zone` (String) Associated zone name or ID
+- `region` (String) Associated region name or ID
 
 ### Optional
 
