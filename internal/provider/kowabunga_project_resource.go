@@ -273,10 +273,26 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 		}
 	}
 	d.Metadatas = basetypes.NewMapValueMust(types.StringType, metadatas)
-	d.MaxInstances = types.Int64Value(int64(*r.Quotas.Instances))
-	d.MaxMemory = types.Int64Value(int64(*r.Quotas.Memory) / HelperGbToBytes)
-	d.MaxStorage = types.Int64Value(int64(*r.Quotas.Storage) / HelperGbToBytes)
-	d.MaxVCPUs = types.Int64Value(int64(*r.Quotas.Vcpus))
+	if r.Quotas.Instances != nil {
+		d.MaxInstances = types.Int64Value(int64(*r.Quotas.Instances))
+	} else {
+		d.MaxInstances = types.Int64Value(ProjectDefaultValueMaxInstances)
+	}
+	if r.Quotas.Memory != nil {
+		d.MaxMemory = types.Int64Value(int64(*r.Quotas.Memory) / HelperGbToBytes)
+	} else {
+		d.MaxMemory = types.Int64Value(ProjectDefaultValueMaxMemory)
+	}
+	if r.Quotas.Storage != nil {
+		d.MaxStorage = types.Int64Value(int64(*r.Quotas.Storage) / HelperGbToBytes)
+	} else {
+		d.MaxStorage = types.Int64Value(ProjectDefaultValueMaxStorage)
+	}
+	if r.Quotas.Vcpus != nil {
+		d.MaxVCPUs = types.Int64Value(int64(*r.Quotas.Vcpus))
+	} else {
+		d.MaxVCPUs = types.Int64Value(ProjectDefaultValueMaxVCPUs)
+	}
 
 	privateSubnets := map[string]attr.Value{}
 	for _, p := range r.PrivateSubnets {
