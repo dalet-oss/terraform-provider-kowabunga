@@ -35,7 +35,7 @@ type VolumeResourceModel struct {
 	Name     types.String   `tfsdk:"name"`
 	Desc     types.String   `tfsdk:"desc"`
 	Project  types.String   `tfsdk:"project"`
-	Zone     types.String   `tfsdk:"zone"`
+	Region   types.String   `tfsdk:"region"`
 	Pool     types.String   `tfsdk:"pool"`
 	Template types.String   `tfsdk:"template"`
 	Type     types.String   `tfsdk:"type"`
@@ -62,8 +62,8 @@ func (r *VolumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "Associated project name or ID",
 				Required:            true,
 			},
-			KeyZone: schema.StringAttribute{
-				MarkdownDescription: "Associated zone name or ID",
+			KeyRegion: schema.StringAttribute{
+				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyPool: schema.StringAttribute{
@@ -133,8 +133,8 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		errorCreateGeneric(resp, err)
 		return
 	}
-	// find parent zone
-	zoneId, err := getZoneID(ctx, r.Data, data.Zone.ValueString())
+	// find parent region
+	regionId, err := getRegionID(ctx, r.Data, data.Region.ValueString())
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
@@ -147,7 +147,7 @@ func (r *VolumeResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// create a new volume
 	m := volumeResourceToModel(data)
-	api := r.Data.K.ProjectAPI.CreateProjectZoneVolume(ctx, projectId, zoneId).Volume(m)
+	api := r.Data.K.ProjectAPI.CreateProjectRegionVolume(ctx, projectId, regionId).Volume(m)
 	if poolId != "" {
 		api = api.PoolId(poolId)
 	}

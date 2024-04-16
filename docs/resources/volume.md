@@ -19,9 +19,9 @@ Manages a storage volume resource
 
 - `name` (String) Resource name
 - `project` (String) Associated project name or ID
+- `region` (String) Associated region name or ID
 - `size` (Number) The volume size (expressed in GB)
 - `type` (String) The volume type (valid options: 'os', 'iso', 'raw')
-- `zone` (String) Associated zone name or ID
 
 ### Optional
 
