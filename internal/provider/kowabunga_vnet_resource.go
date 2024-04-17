@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -20,8 +19,7 @@ import (
 const (
 	VNetResourceName = "vnet"
 
-	VNetDefaultValueVlan    = 0
-	VNetDefaultValuePrivate = true
+	VNetDefaultValueVlan = 0
 )
 
 var _ resource.Resource = &VNetResource{}
@@ -79,10 +77,8 @@ func (r *VNetResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			KeyPrivate: schema.BoolAttribute{
-				MarkdownDescription: "Whether the virtual network is private or public (default: **true**). The first virtual network to be created is always considered to be the default one.",
-				Computed:            true,
-				Optional:            true,
-				Default:             booldefault.StaticBool(VNetDefaultValuePrivate),
+				MarkdownDescription: "Whether the virtual network is private or public. The first virtual network to be created is always considered to be the default one.",
+				Required:            true,
 			},
 		},
 	}
@@ -96,7 +92,7 @@ func vnetResourceToModel(d *VNetResourceModel) sdk.VNet {
 		Description: d.Desc.ValueStringPointer(),
 		Vlan:        d.VLAN.ValueInt64Pointer(),
 		Interface:   d.Interface.ValueString(),
-		Private:     d.Private.ValueBoolPointer(),
+		Private:     d.Private.ValueBool(),
 	}
 }
 
@@ -118,11 +114,7 @@ func vnetModelToResource(r *sdk.VNet, d *VNetResourceModel) {
 		d.VLAN = types.Int64Value(VNetDefaultValueVlan)
 	}
 	d.Interface = types.StringValue(r.Interface)
-	if r.Private != nil {
-		d.Private = types.BoolPointerValue(r.Private)
-	} else {
-		d.Private = types.BoolValue(VNetDefaultValuePrivate)
-	}
+	d.Private = types.BoolValue(r.Private)
 }
 
 func (r *VNetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
