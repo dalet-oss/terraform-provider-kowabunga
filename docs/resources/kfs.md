@@ -39,7 +39,7 @@ Manages a KFS distributed network storage resource. **KFS** (stands for *Kowabun
 
 Optional:
 
-- `create` (String) 3m0s
-- `delete` (String) 2m0s
-- `read` (String) 1m0s
-- `update` (String) 2m0s
+- `create` (String) 30m0s
+- `delete` (String) 5m0s
+- `read` (String) 2m0s
+- `update` (String) 5m0s

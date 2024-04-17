@@ -43,7 +43,7 @@ Manages a virtual machine KCE resource. **KCE** (stands for *Kowabunga Compute E
 
 Optional:
 
-- `create` (String) 3m0s
-- `delete` (String) 2m0s
-- `read` (String) 1m0s
-- `update` (String) 2m0s
+- `create` (String) 30m0s
+- `delete` (String) 5m0s
+- `read` (String) 2m0s
+- `update` (String) 5m0s

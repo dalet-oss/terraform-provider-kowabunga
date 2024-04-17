@@ -107,10 +107,10 @@ const (
 )
 
 const (
-	DefaultCreateTimeout = 3 * time.Minute
-	DefaultDeleteTimeout = 2 * time.Minute
-	DefaultReadTimeout   = 1 * time.Minute
-	DefaultUpdateTimeout = 2 * time.Minute
+	DefaultCreateTimeout = 30 * time.Minute // large enough for template upload
+	DefaultDeleteTimeout = 5 * time.Minute
+	DefaultReadTimeout   = 2 * time.Minute
+	DefaultUpdateTimeout = 5 * time.Minute
 )
 
 const (
