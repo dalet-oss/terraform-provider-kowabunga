@@ -84,6 +84,7 @@ const (
 	KeyVCPUs            = "vcpus"
 	KeyMemory           = "mem"
 	KeyAdapters         = "adapters"
+	KeyExtraAdapters    = "extra_adapters"
 	KeyVolumes          = "volumes"
 	KeyDisk             = "disk"
 	KeyExtraDisk        = "extra_disk"

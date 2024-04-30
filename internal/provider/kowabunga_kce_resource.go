@@ -8,6 +8,7 @@ import (
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -41,20 +42,21 @@ type KceResource struct {
 }
 
 type KceResourceModel struct {
-	ID        types.String   `tfsdk:"id"`
-	Timeouts  timeouts.Value `tfsdk:"timeouts"`
-	Name      types.String   `tfsdk:"name"`
-	Desc      types.String   `tfsdk:"desc"`
-	Project   types.String   `tfsdk:"project"`
-	Zone      types.String   `tfsdk:"zone"`
-	Pool      types.String   `tfsdk:"pool"`
-	Template  types.String   `tfsdk:"template"`
-	VCPUs     types.Int64    `tfsdk:"vcpus"`
-	Memory    types.Int64    `tfsdk:"mem"`
-	Disk      types.Int64    `tfsdk:"disk"`
-	ExtraDisk types.Int64    `tfsdk:"extra_disk"`
-	Public    types.Bool     `tfsdk:"public"`
-	IP        types.String   `tfsdk:"ip"`
+	ID            types.String   `tfsdk:"id"`
+	Timeouts      timeouts.Value `tfsdk:"timeouts"`
+	Name          types.String   `tfsdk:"name"`
+	Desc          types.String   `tfsdk:"desc"`
+	Project       types.String   `tfsdk:"project"`
+	Zone          types.String   `tfsdk:"zone"`
+	Pool          types.String   `tfsdk:"pool"`
+	Template      types.String   `tfsdk:"template"`
+	VCPUs         types.Int64    `tfsdk:"vcpus"`
+	Memory        types.Int64    `tfsdk:"mem"`
+	Disk          types.Int64    `tfsdk:"disk"`
+	ExtraDisk     types.Int64    `tfsdk:"extra_disk"`
+	ExtraAdapters types.List     `tfsdk:"extra_adapters"`
+	Public        types.Bool     `tfsdk:"public"`
+	IP            types.String   `tfsdk:"ip"`
 }
 
 func (r *KceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -112,6 +114,12 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Computed:            true,
 				Default:             int64default.StaticInt64(KceDefaultValueExtraDisk),
 			},
+			KeyExtraAdapters: schema.ListAttribute{
+				MarkdownDescription: "The KCE optionals adapter ids to add",
+				ElementType:         types.StringType,
+				Optional:            true,
+				Computed:            false,
+			},
 			KeyPublic: schema.BoolAttribute{
 				MarkdownDescription: "Should KCE be exposed over public Internet ? (default: **false**)",
 				Optional:            true,
@@ -135,15 +143,17 @@ func kceResourceToModel(d *KceResourceModel) sdk.KCE {
 	memSize := d.Memory.ValueInt64() * HelperGbToBytes
 	diskSize := d.Disk.ValueInt64() * HelperGbToBytes
 	extraDiskSize := d.ExtraDisk.ValueInt64() * HelperGbToBytes
-
+	adapterIds := []string{}
+	d.ExtraAdapters.ElementsAs(context.TODO(), &adapterIds, false)
 	return sdk.KCE{
-		Name:        d.Name.ValueString(),
-		Description: d.Desc.ValueStringPointer(),
-		Vcpus:       d.VCPUs.ValueInt64(),
-		Memory:      memSize,
-		Disk:        diskSize,
-		DataDisk:    &extraDiskSize,
-		Ip:          d.IP.ValueStringPointer(),
+		Name:          d.Name.ValueString(),
+		Description:   d.Desc.ValueStringPointer(),
+		Vcpus:         d.VCPUs.ValueInt64(),
+		Memory:        memSize,
+		Disk:          diskSize,
+		ExtraAdapters: adapterIds,
+		DataDisk:      &extraDiskSize,
+		Ip:            d.IP.ValueStringPointer(),
 	}
 }
 
@@ -170,6 +180,11 @@ func kceModelToResource(r *sdk.KCE, d *KceResourceModel) {
 	d.Memory = types.Int64Value(memSize)
 	d.Disk = types.Int64Value(diskSize)
 	d.ExtraDisk = types.Int64Value(extraDiskSize)
+	adapters := []attr.Value{}
+	for _, a := range r.ExtraAdapters {
+		adapters = append(adapters, types.StringValue(a))
+	}
+	d.ExtraAdapters, _ = types.ListValue(types.StringType, adapters)
 	if r.Ip != nil {
 		d.IP = types.StringPointerValue(r.Ip)
 	} else {
