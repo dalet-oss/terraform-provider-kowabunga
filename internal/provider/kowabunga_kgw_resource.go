@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"sort"
 
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
@@ -40,10 +41,16 @@ type KgwResourceModel struct {
 	Desc     types.String   `tfsdk:"desc"`
 	Project  types.String   `tfsdk:"project"`
 
-	Region    types.String `tfsdk:"region"`
+	Region       types.String `tfsdk:"region"`
+	ZoneSettings types.List   `tfsdk:"zone_settings"`
+	Nats         types.List   `tfsdk:"nats"`
+	VnetPeerings types.List   `tfsdk:"vnet_peerings"`
+}
+
+type KgwZoneSettings struct {
+	Zone      types.String `tfsdk:"zone"`
 	PublicIp  types.String `tfsdk:"public_ip"`
 	PrivateIp types.String `tfsdk:"private_ip"`
-	Nats      types.List   `tfsdk:"nats"`
 }
 
 type KgwNatRule struct {
@@ -52,14 +59,20 @@ type KgwNatRule struct {
 	Ports     types.String `tfsdk:"ports"`
 }
 
+type KgwVnetPeering struct {
+	VNet   types.String `tfsdk:"vnet"`
+	Subnet types.String `tfsdk:"subnet"`
+	Ports  types.String `tfsdk:"ports"`
+	IPs    types.List   `tfsdk:"ips"`
+}
+
 func (r *KgwResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resourceMetadata(req, resp, KgwResourceName)
 }
 
 func (r *KgwResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
-	resource.ImportStatePassthroughID(ctx, path.Root(KeyPrivateIp), req, resp)
-	resource.ImportStatePassthroughID(ctx, path.Root(KeyPublicIp), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root(KeyZoneSettings), req, resp)
 }
 
 func (r *KgwResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -78,18 +91,36 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
-			KeyPublicIp: schema.StringAttribute{
-				MarkdownDescription: "The KGW default Public IP (read-only)",
+			KeyZoneSettings: schema.ListNestedAttribute{
+				MarkdownDescription: "Per-zone network settings (read-only)",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			KeyPrivateIp: schema.StringAttribute{
-				MarkdownDescription: "The KGW Private IP (read-only)",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						KeyZone: schema.StringAttribute{
+							MarkdownDescription: "Zone name (read-only)",
+							Optional:            true,
+							Computed:            true,
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
+						},
+						KeyPublicIp: schema.StringAttribute{
+							MarkdownDescription: "KGW zone-local public IP address (read-only)",
+							Optional:            true,
+							Computed:            true,
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
+						},
+						KeyPrivateIp: schema.StringAttribute{
+							MarkdownDescription: "KGW zone-local private IP address (read-only)",
+							Optional:            true,
+							Computed:            true,
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
+						},
+					},
 				},
 			},
 			KeyNats: schema.ListNestedAttribute{
@@ -119,19 +150,81 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 					},
 				},
 			},
+			KeyVnetPeerings: schema.ListNestedAttribute{
+				MarkdownDescription: "Virtual Network Peerings Configuration",
+				Optional:            true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						KeyVNet: schema.StringAttribute{
+							MarkdownDescription: "Kowabunga VNet ID to be peered with",
+							Required:            true,
+						},
+						KeySubnet: schema.StringAttribute{
+							MarkdownDescription: "Kowabunga Subnet ID to be peered with (IP address will be automatically assigned)",
+							Required:            true,
+						},
+						KeyPorts: schema.StringAttribute{
+							MarkdownDescription: "Ports to be reachable from peered subnet. If specified, traffic will be filtered. For a list of ports, separate it with a comma, Ranges Accepted. e.g 8001,9006-9010",
+							Optional:            true,
+							Computed:            true,
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
+							Validators: []validator.String{
+								&stringPortValidator{},
+							},
+						},
+						KeyIPs: schema.ListAttribute{
+							MarkdownDescription: "List of auto-assigned private IP addresses in peered subnet (read-only)",
+							ElementType:         types.StringType,
+							Required:            true,
+						},
+					},
+				},
+			},
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributesWithoutName(&ctx))
 }
 
 // converts kgw from Terraform model to Kowabunga API model
-func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) sdk.KGW {
+func kgwZoneSettingsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWZoneSettings {
+	zsModel := []sdk.KGWZoneSettings{}
+
+	zs := make([]types.Object, 0, len(d.ZoneSettings.Elements()))
+	diags := d.ZoneSettings.ElementsAs(*ctx, &zs, false)
+	if diags.HasError() {
+		for _, err := range diags.Errors() {
+			tflog.Debug(*ctx, err.Detail())
+		}
+	}
+
+	zoneSettings := KgwZoneSettings{}
+	for _, z := range zs {
+		diags := z.As(*ctx, &zoneSettings, basetypes.ObjectAsOptions{
+			UnhandledNullAsEmpty:    true,
+			UnhandledUnknownAsEmpty: true,
+		})
+		if diags.HasError() {
+			for _, err := range diags.Errors() {
+				tflog.Error(*ctx, err.Detail())
+			}
+		}
+		zsModel = append(zsModel, sdk.KGWZoneSettings{
+			Zone:      zoneSettings.Zone.ValueString(),
+			PublicIp:  zoneSettings.PublicIp.ValueString(),
+			PrivateIp: zoneSettings.PrivateIp.ValueString(),
+		})
+	}
+
+	return zsModel
+}
+
+func kgwNatsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWNat {
 	natsModel := []sdk.KGWNat{}
 
 	nats := make([]types.Object, 0, len(d.Nats.Elements()))
-
 	diags := d.Nats.ElementsAs(*ctx, &nats, false)
-
 	if diags.HasError() {
 		for _, err := range diags.Errors() {
 			tflog.Debug(*ctx, err.Detail())
@@ -155,35 +248,82 @@ func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) sdk.KGW {
 			Ports:     natRule.Ports.ValueStringPointer(),
 		})
 	}
+
+	return natsModel
+}
+
+func kgwVnetPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVnetPeering {
+	vpModel := []sdk.KGWVnetPeering{}
+
+	peerings := make([]types.Object, 0, len(d.VnetPeerings.Elements()))
+	diags := d.VnetPeerings.ElementsAs(*ctx, &peerings, false)
+	if diags.HasError() {
+		for _, err := range diags.Errors() {
+			tflog.Debug(*ctx, err.Detail())
+		}
+	}
+
+	vp := KgwVnetPeering{}
+	for _, p := range peerings {
+		diags := p.As(*ctx, &vp, basetypes.ObjectAsOptions{
+			UnhandledNullAsEmpty:    true,
+			UnhandledUnknownAsEmpty: true,
+		})
+		if diags.HasError() {
+			for _, err := range diags.Errors() {
+				tflog.Error(*ctx, err.Detail())
+			}
+		}
+
+		ips := []string{}
+		vp.IPs.ElementsAs(context.TODO(), &ips, false)
+		sort.Strings(ips)
+
+		vpModel = append(vpModel, sdk.KGWVnetPeering{
+			Vnet:   vp.VNet.ValueString(),
+			Subnet: vp.Subnet.ValueString(),
+			Ports:  vp.Ports.ValueStringPointer(),
+			Ips:    ips,
+		})
+	}
+
+	return vpModel
+}
+
+func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) sdk.KGW {
 	return sdk.KGW{
-		Description: d.Desc.ValueStringPointer(),
-		PublicIp:    d.PublicIp.ValueStringPointer(),
-		PrivateIp:   d.PrivateIp.ValueStringPointer(),
-		Nats:        natsModel,
+		Description:  d.Desc.ValueStringPointer(),
+		Addresses:    kgwZoneSettingsModel(ctx, d),
+		Nats:         kgwNatsModel(ctx, d),
+		VnetPeerings: kgwVnetPeeringsModel(ctx, d),
 	}
 }
 
-// converts kgw from Kowabunga API model to Terraform model
-func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
-	if r == nil {
-		return
+func kgwModelToZoneSettings(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+	zs := []attr.Value{}
+	zsType := map[string]attr.Type{
+		KeyZone:      types.StringType,
+		KeyPublicIp:  types.StringType,
+		KeyPrivateIp: types.StringType,
 	}
-	if r.Description != nil {
-		d.Desc = types.StringPointerValue(r.Description)
-	} else {
-		d.Desc = types.StringValue("")
-	}
-	if r.PublicIp != nil {
-		d.PublicIp = types.StringPointerValue(r.PublicIp)
-	} else {
-		d.PublicIp = types.StringValue("")
-	}
-	if r.PrivateIp != nil {
-		d.PrivateIp = types.StringPointerValue(r.PrivateIp)
-	} else {
-		d.PrivateIp = types.StringValue("")
+	for _, z := range r.Addresses {
+		a := map[string]attr.Value{
+			KeyZone:      types.StringValue(z.Zone),
+			KeyPublicIp:  types.StringValue(z.PublicIp),
+			KeyPrivateIp: types.StringValue(z.PrivateIp),
+		}
+		object, _ := types.ObjectValue(zsType, a)
+		zs = append(zs, object)
 	}
 
+	if len(r.Addresses) == 0 {
+		d.ZoneSettings = types.ListNull(types.ObjectType{AttrTypes: zsType})
+	} else {
+		d.ZoneSettings, _ = types.ListValue(types.ObjectType{AttrTypes: zsType}, zs)
+	}
+}
+
+func kgwModelToNats(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	nats := []attr.Value{}
 	natType := map[string]attr.Type{
 		KeyPrivateIp: types.StringType,
@@ -213,6 +353,58 @@ func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	} else {
 		d.Nats, _ = types.ListValue(types.ObjectType{AttrTypes: natType}, nats)
 	}
+}
+
+func kgwModelToVnetPeerings(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+	vps := []attr.Value{}
+	vpType := map[string]attr.Type{
+		KeyVNet:   types.StringType,
+		KeySubnet: types.StringType,
+		KeyPorts:  types.StringType,
+	}
+	for _, v := range r.VnetPeerings {
+		var ports string
+		if v.Ports != nil {
+			ports = *v.Ports
+		}
+
+		ips := []attr.Value{}
+		sort.Strings(v.Ips)
+		for _, i := range v.Ips {
+			ips = append(ips, types.StringValue(i))
+		}
+
+		a := map[string]attr.Value{
+			KeyVNet:   types.StringValue(v.Vnet),
+			KeySubnet: types.StringValue(v.Subnet),
+			KeyPorts:  types.StringPointerValue(&ports),
+		}
+		a[KeyIPs], _ = types.ListValue(types.StringType, ips)
+		object, _ := types.ObjectValue(vpType, a)
+		vps = append(vps, object)
+	}
+
+	if len(r.VnetPeerings) == 0 {
+		d.VnetPeerings = types.ListNull(types.ObjectType{AttrTypes: vpType})
+	} else {
+		d.VnetPeerings, _ = types.ListValue(types.ObjectType{AttrTypes: vpType}, vps)
+	}
+}
+
+// converts kgw from Kowabunga API model to Terraform model
+func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+	if r == nil {
+		return
+	}
+	if r.Description != nil {
+		d.Desc = types.StringPointerValue(r.Description)
+	} else {
+		d.Desc = types.StringValue("")
+	}
+
+	kgwModelToZoneSettings(ctx, r, d)
+	kgwModelToNats(ctx, r, d)
+	kgwModelToVnetPeerings(ctx, r, d)
 }
 
 func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

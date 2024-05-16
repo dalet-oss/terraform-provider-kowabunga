@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -21,7 +22,8 @@ import (
 const (
 	SubnetResourceName = "subnet"
 
-	SubnetDefaultValueDefault = false
+	SubnetDefaultValueDefault     = false
+	SubnetDefaultValueApplication = "user"
 )
 
 var _ resource.Resource = &SubnetResource{}
@@ -36,17 +38,19 @@ type SubnetResource struct {
 }
 
 type SubnetResourceModel struct {
-	ID       types.String   `tfsdk:"id"`
-	Timeouts timeouts.Value `tfsdk:"timeouts"`
-	Name     types.String   `tfsdk:"name"`
-	Desc     types.String   `tfsdk:"desc"`
-	VNet     types.String   `tfsdk:"vnet"`
-	CIDR     types.String   `tfsdk:"cidr"`
-	Gateway  types.String   `tfsdk:"gateway"`
-	DNS      types.String   `tfsdk:"dns"`
-	Reserved types.List     `tfsdk:"reserved"`
-	Routes   types.List     `tfsdk:"routes"`
-	Default  types.Bool     `tfsdk:"default"`
+	ID          types.String   `tfsdk:"id"`
+	Timeouts    timeouts.Value `tfsdk:"timeouts"`
+	Name        types.String   `tfsdk:"name"`
+	Desc        types.String   `tfsdk:"desc"`
+	VNet        types.String   `tfsdk:"vnet"`
+	CIDR        types.String   `tfsdk:"cidr"`
+	Gateway     types.String   `tfsdk:"gateway"`
+	DNS         types.String   `tfsdk:"dns"`
+	Reserved    types.List     `tfsdk:"reserved"`
+	GwPool      types.List     `tfsdk:"gw_pool"`
+	Routes      types.List     `tfsdk:"routes"`
+	Application types.String   `tfsdk:"application"`
+	Default     types.Bool     `tfsdk:"default"`
 }
 
 func (r *SubnetResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -82,7 +86,12 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Required:            true,
 			},
 			KeyReserved: schema.ListAttribute{
-				MarkdownDescription: "List of subnet's reserved IPv4 ranges (format: 192.168.0.200-192.168.0.240)",
+				MarkdownDescription: "List of subnet's reserved IPv4 ranges (format: 192.168.0.200-192.168.0.240). IPv4 addresses from these ranges cannot be used by Kowabunga to assign resources.",
+				Required:            true,
+				ElementType:         types.StringType,
+			},
+			KeyGwPool: schema.ListAttribute{
+				MarkdownDescription: "Subnet's range of IPv4 addresses reserved for local zone's network gateway (format: 192.168.0.200-192.168.0.240). Range size must be at least equal to region's number of zones.",
 				Required:            true,
 				ElementType:         types.StringType,
 			},
@@ -90,6 +99,12 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "List of extra routes to be access through designated gateway (format: 10.0.0.0/8).",
 				Required:            true,
 				ElementType:         types.StringType,
+			},
+			KeyApplication: schema.StringAttribute{
+				MarkdownDescription: "Optional application service type (defaults to 'user', possible values: 'user', 'ceph').",
+				Computed:            true,
+				Optional:            true,
+				Default:             stringdefault.StaticString(SubnetDefaultValueApplication),
 			},
 			KeyDefault: schema.BoolAttribute{
 				MarkdownDescription: "Whether to set subnet as virtual network's default one (default: **false**). The first subnet to be created is always considered as default one.",
@@ -118,6 +133,22 @@ func subnetResourceToModel(d *SubnetResourceModel) sdk.Subnet {
 		}
 		reservedRanges = append(reservedRanges, ipr)
 	}
+
+	gwPoolRanges := []sdk.IpRange{}
+	gwRanges := []string{}
+	d.GwPool.ElementsAs(context.TODO(), &gwRanges, false)
+	for _, item := range gwRanges {
+		split := strings.Split(item, "-")
+		if len(split) != 2 {
+			continue
+		}
+		ipr := sdk.IpRange{
+			First: split[0],
+			Last:  split[1],
+		}
+		gwPoolRanges = append(gwPoolRanges, ipr)
+	}
+
 	routes := []string{}
 	d.Routes.ElementsAs(context.TODO(), &routes, false)
 
@@ -128,7 +159,9 @@ func subnetResourceToModel(d *SubnetResourceModel) sdk.Subnet {
 		Gateway:     d.Gateway.ValueString(),
 		Dns:         d.DNS.ValueStringPointer(),
 		Reserved:    reservedRanges,
+		GwPool:      gwPoolRanges,
 		ExtraRoutes: routes,
+		Application: d.Application.ValueStringPointer(),
 	}
 }
 
@@ -158,11 +191,25 @@ func subnetModelToResource(s *sdk.Subnet, d *SubnetResourceModel) {
 		ranges = append(ranges, types.StringValue(ipr))
 	}
 	d.Reserved, _ = types.ListValue(types.StringType, ranges)
+
+	gwRanges := []attr.Value{}
+	for _, item := range s.GwPool {
+		ipr := fmt.Sprintf("%s-%s", item.First, item.Last)
+		gwRanges = append(gwRanges, types.StringValue(ipr))
+	}
+	d.GwPool, _ = types.ListValue(types.StringType, gwRanges)
+
 	routes := []attr.Value{}
 	for _, r := range s.ExtraRoutes {
 		routes = append(routes, types.StringValue(r))
 	}
 	d.Routes, _ = types.ListValue(types.StringType, routes)
+
+	if s.Application != nil {
+		d.Application = types.StringPointerValue(s.Application)
+	} else {
+		d.Application = types.StringValue(SubnetDefaultValueApplication)
+	}
 }
 
 func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
