@@ -18,16 +18,16 @@ const (
 	ValidatorNetworkPortsErrBogusRange     = "Left hand side is superior than righ hand side"
 )
 
-type stringPortValidator struct{}
+type stringNetworkPortRangesValidator struct{}
 
-func (v stringPortValidator) Description(ctx context.Context) string {
+func (v stringNetworkPortRangesValidator) Description(ctx context.Context) string {
 	return ValidatorNetworkPortsDescription
 }
 
-func (v stringPortValidator) MarkdownDescription(ctx context.Context) string {
+func (v stringNetworkPortRangesValidator) MarkdownDescription(ctx context.Context) string {
 	return v.Description(ctx)
 }
-func (v stringPortValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (v stringNetworkPortRangesValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 
 	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
