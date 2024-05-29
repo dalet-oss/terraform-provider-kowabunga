@@ -167,3 +167,35 @@ func (v stringPortValidator) ValidateString(ctx context.Context, req validator.S
 		}
 	}
 }
+
+// Custom Protocol Validator
+type stringProtocolValidator struct{}
+
+func (v stringProtocolValidator) Description(ctx context.Context) string {
+	return "Protocol must be one of 'udp, 'tcp'"
+}
+
+// MarkdownDescription returns a markdown formatted description of the validator's behavior, suitable for a practitioner to understand its impact.
+func (v stringProtocolValidator) MarkdownDescription(ctx context.Context) string {
+	return "Protocol must be one of 'udp, 'tcp'"
+}
+func (v stringProtocolValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
+		return
+	}
+
+	authorizedProtocols := []string{
+		"tcp",
+		"udp",
+	}
+
+	protocol := req.ConfigValue.ValueString()
+	if !slices.Contains(authorizedProtocols, protocol) {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Unsupported protocol",
+			fmt.Sprintf("Unsupported protocol: %s", protocol),
+		)
+	}
+}
