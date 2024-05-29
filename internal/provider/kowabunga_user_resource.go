@@ -27,12 +27,6 @@ const (
 var _ resource.Resource = &UserResource{}
 var _ resource.ResourceWithImportState = &UserResource{}
 
-var userSupportedRoles = []string{
-	"superAdmin",
-	"projectAdmin",
-	"user",
-}
-
 func NewUserResource() resource.Resource {
 	return &UserResource{}
 }

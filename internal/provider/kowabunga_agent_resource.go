@@ -23,12 +23,6 @@ const (
 var _ resource.Resource = &AgentResource{}
 var _ resource.ResourceWithImportState = &AgentResource{}
 
-var agentSupportedTypes = []string{
-	"KCA",
-	"KSA",
-	"KNA",
-}
-
 func NewAgentResource() resource.Resource {
 	return &AgentResource{}
 }
