@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -65,6 +66,7 @@ type ProjectResourceModel struct {
 	PrivateSubnets types.Map      `tfsdk:"private_subnets"`
 	Groups         types.List     `tfsdk:"groups"`
 	Regions        types.List     `tfsdk:"regions"`
+	VRIDs          types.List     `tfsdk:"vrids"`
 }
 
 type ProjectQuotaModel struct {
@@ -172,6 +174,14 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "The list of regions the project is managing resources from (subnets will be pre-allocated in all referenced regions)",
 				ElementType:         types.StringType,
 				Required:            true,
+			},
+			KeyVRIDs: schema.ListAttribute{
+				Computed:            true,
+				MarkdownDescription: "List of VRRP IDs used by -as-a-service resources within the project virtual network (read-only). Should your application use VRRP for service redundancy, you should use different IDs to prevent issues.",
+				ElementType:         types.Int64Type,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -317,6 +327,17 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 		regions = append(regions, types.StringValue(r))
 	}
 	d.Regions, _ = types.ListValue(types.StringType, regions)
+
+	reserved_vrids := []int{}
+	for _, vrid := range r.ReservedVrrpIds {
+		reserved_vrids = append(reserved_vrids, int(vrid))
+	}
+	sort.Ints(reserved_vrids)
+	vrids := []attr.Value{}
+	for _, vrid := range reserved_vrids {
+		vrids = append(vrids, types.Int64Value(int64(vrid)))
+	}
+	d.VRIDs, _ = types.ListValue(types.Int64Type, vrids)
 }
 
 func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
