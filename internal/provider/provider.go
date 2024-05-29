@@ -152,6 +152,8 @@ func (p *KowabungaProvider) DataSources(ctx context.Context) []func() datasource
 		NewRegionsDataSource,
 		NewZoneDataSource,
 		NewZonesDataSource,
+		NewSubnetDataSource,
+		NewSubnetsDataSource,
 		NewGroupDataSource,
 		NewGroupsDataSource,
 	}
