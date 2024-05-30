@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -179,6 +181,9 @@ func (r *KgwResource) SchemaNetworkConfig() schema.SingleNestedAttribute {
 			},
 			KeyZones: r.SchemaNetworkZoneConfig(),
 		},
+		PlanModifiers: []planmodifier.Object{
+			objectplanmodifier.UseStateForUnknown(),
+		},
 	}
 }
 
@@ -330,12 +335,20 @@ func (r *KgwResource) SchemaVpcPeerings() schema.ListNestedAttribute {
 				KeyIngressRules: schema.ListNestedAttribute{
 					MarkdownDescription: "The firewall list of forwarding ingress rules from VPC peered subnet. ICMP traffic is always accepted. The specified ruleset will be explicitly accepted if drop is the default policy (useless otherwise)",
 					Optional:            true,
+					Computed:            true,
 					NestedObject:        r.SchemaForwardRule(),
+					PlanModifiers: []planmodifier.List{
+						listplanmodifier.UseStateForUnknown(),
+					},
 				},
 				KeyEgressRules: schema.ListNestedAttribute{
 					MarkdownDescription: "The firewall list of forwarding egress rules to VPC peered subnet. ICMP trafficis always accepted. The specified ruleset will be explicitly accepted if drop is the default policy (useless otherwise)",
 					Optional:            true,
+					Computed:            true,
 					NestedObject:        r.SchemaForwardRule(),
+					PlanModifiers: []planmodifier.List{
+						listplanmodifier.UseStateForUnknown(),
+					},
 				},
 				KeyNetworkConfig: schema.ListNestedAttribute{
 					MarkdownDescription: "The per-zone auto-assigned private IPs in peered subnet (read-only)",
@@ -364,8 +377,14 @@ func (r *KgwResource) SchemaVpcPeerings() schema.ListNestedAttribute {
 							},
 						},
 					},
+					PlanModifiers: []planmodifier.List{
+						listplanmodifier.UseStateForUnknown(),
+					},
 				},
 			},
+		},
+		PlanModifiers: []planmodifier.List{
+			listplanmodifier.UseStateForUnknown(),
 		},
 	}
 }
