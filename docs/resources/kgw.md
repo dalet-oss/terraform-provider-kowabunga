@@ -23,26 +23,55 @@ Manages a KGW resource. **KGW** (stands for *Kowabunga Gateway*) is a resource t
 ### Optional
 
 - `desc` (String) Resource extended description
-- `nats` (Attributes List) NATs Configuration (see [below for nested schema](#nestedatt--nats))
+- `egress_policy` (String) KGW default public traffic firewall egress policy: 'accept' (default) or 'drop'
+- `egress_rules` (Attributes List) KGW public firewall list of egress rules. KGW default policy is to accept all outgoing traffic, including ICMP. Specified ruleset will be explicitly dropped if egress_policy is set to accept, and explicitly accepted if egress policy is set to drop. (see [below for nested schema](#nestedatt--egress_rules))
+- `ingress_rules` (Attributes List) The KGW public firewall list of ingress rules. KGW default policy is to drop all incoming traffic, including ICMP. Specified ruleset will be explicitly accepted. (see [below for nested schema](#nestedatt--ingress_rules))
+- `nat_rules` (Attributes List) KGW list of NAT forwarding rules. KGW will forward public Internet traffic from all public virtual IPs to requested private subnet IP addresses. (see [below for nested schema](#nestedatt--nat_rules))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
+- `vpc_peerings` (Attributes List) KGW list of Kowabunga private VPC subnet peering rules. (see [below for nested schema](#nestedatt--vpc_peerings))
 
 ### Read-Only
 
 - `id` (String) Resource object internal identifier
-- `private_ip` (String) The KGW Private IP (read-only)
-- `public_ip` (String) The KGW default Public IP (read-only)
+- `netcfg` (Attributes) KGW list of assigned virtual IPs per-zone addresses (read-only) (see [below for nested schema](#nestedatt--netcfg))
 
-<a id="nestedatt--nats"></a>
-### Nested Schema for `nats`
+<a id="nestedatt--egress_rules"></a>
+### Nested Schema for `egress_rules`
 
 Required:
 
-- `ports` (String) Ports that will be forwarded. 0 Means all. For a list of ports, separate it with a comma, Ranges Accepted. e.g 8001,9006-9010
-- `private_ip` (String) Private IP where the NAT will be forwarded
+- `ports` (String) The port (or list of ports) to forward public traffic from. Ranges are accepted. Format is a-b,c-d (e.g. 443; 22,80,443; 80,443,3000-3005).
 
 Optional:
 
-- `public_ip` (String) Exposed public IP used to forward traffic. Leave empty to use the default GW interface
+- `destination` (String) The destination IP or CIDR to accept/drop public traffic to (defaults to 0.0.0.0/0)
+- `protocol` (String) The transport layer protocol to accept/drop public traffic to (defaults to 'tcp')
+
+
+<a id="nestedatt--ingress_rules"></a>
+### Nested Schema for `ingress_rules`
+
+Required:
+
+- `ports` (String) The port (or list of ports) to accept public traffic from. Ranges are accepted. Format is a-b,c-d (e.g. 443; 22,80,443; 80,443,3000-3005).
+
+Optional:
+
+- `protocol` (String) The transport layer protocol to accept public traffic from (defaults to 'tcp').
+- `source` (String) The source IP or CIDR to accept public traffic from (defaults to 0.0.0.0/0).
+
+
+<a id="nestedatt--nat_rules"></a>
+### Nested Schema for `nat_rules`
+
+Required:
+
+- `destination` (String) Target private IP address to forward public traffic to.
+- `ports` (String) The port (or list of ports) to forward public traffic from. Ranges are accepted. Format is a-b,c-d (e.g. 443; 22,80,443; 80,443,3000-3005).
+
+Optional:
+
+- `protocol` (String) The transport layer protocol to forward public traffic to (defaults to 'tcp')
 
 
 <a id="nestedatt--timeouts"></a>
@@ -54,3 +83,73 @@ Optional:
 - `delete` (String) 5m0s
 - `read` (String) 2m0s
 - `update` (String) 5m0s
+
+
+<a id="nestedatt--vpc_peerings"></a>
+### Nested Schema for `vpc_peerings`
+
+Required:
+
+- `subnet` (String) Kowabunga Subnet ID to be peered with (subnet local IP addresses will be automatically assigned to KGW instances).
+
+Optional:
+
+- `egress_rules` (Attributes List) The firewall list of forwarding egress rules to VPC peered subnet. ICMP trafficis always accepted. The specified ruleset will be explicitly accepted if drop is the default policy (useless otherwise) (see [below for nested schema](#nestedatt--vpc_peerings--egress_rules))
+- `ingress_rules` (Attributes List) The firewall list of forwarding ingress rules from VPC peered subnet. ICMP traffic is always accepted. The specified ruleset will be explicitly accepted if drop is the default policy (useless otherwise) (see [below for nested schema](#nestedatt--vpc_peerings--ingress_rules))
+- `policy` (String) The default VPC traffic forwarding policy: 'accept' (default) or 'drop'
+
+Read-Only:
+
+- `netcfg` (Attributes List) The per-zone auto-assigned private IPs in peered subnet (read-only) (see [below for nested schema](#nestedatt--vpc_peerings--netcfg))
+
+<a id="nestedatt--vpc_peerings--egress_rules"></a>
+### Nested Schema for `vpc_peerings.egress_rules`
+
+Required:
+
+- `ports` (String) The port (or list of ports) to forward public traffic from. Ranges are accepted. Format is a-b,c-d (e.g. 443; 22,80,443; 80,443,3000-3005).
+
+Optional:
+
+- `protocol` (String) The transport layer protocol to forward public traffic to (defaults to 'tcp')
+
+
+<a id="nestedatt--vpc_peerings--ingress_rules"></a>
+### Nested Schema for `vpc_peerings.ingress_rules`
+
+Required:
+
+- `ports` (String) The port (or list of ports) to forward public traffic from. Ranges are accepted. Format is a-b,c-d (e.g. 443; 22,80,443; 80,443,3000-3005).
+
+Optional:
+
+- `protocol` (String) The transport layer protocol to forward public traffic to (defaults to 'tcp')
+
+
+<a id="nestedatt--vpc_peerings--netcfg"></a>
+### Nested Schema for `vpc_peerings.netcfg`
+
+Read-Only:
+
+- `private_ip` (String) KGW zone gateway private IP address in VPC peered subnet (read-only)
+- `zone` (String) KGW zone name (read-only).
+
+
+
+<a id="nestedatt--netcfg"></a>
+### Nested Schema for `netcfg`
+
+Read-Only:
+
+- `private_ips` (List of String) KGW global private gateways virtual IP addresses (read-only).
+- `public_ips` (List of String) KGW global public gateways virtual IP addresses (read-only).
+- `zones` (Attributes List) KGW per-zone list of Kowabunga virtual IP addresses (read-only) (see [below for nested schema](#nestedatt--netcfg--zones))
+
+<a id="nestedatt--netcfg--zones"></a>
+### Nested Schema for `netcfg.zones`
+
+Read-Only:
+
+- `private_ip` (String) KGW zone gateway private virtual IP (read-only).
+- `public_ip` (String) KGW zone gateway public virtual IP (read-only)
+- `zone` (String) KGW zone name (read-only)

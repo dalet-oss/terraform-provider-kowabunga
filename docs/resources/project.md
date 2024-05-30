@@ -41,6 +41,7 @@ Manages a project resource
 
 - `id` (String) Resource object internal identifier
 - `private_subnets` (Map of String) List of project's private subnets zones association (read-only)
+- `vrids` (List of Number) List of VRRP IDs used by -as-a-service resources within the project virtual network (read-only). Should your application use VRRP for service redundancy, you should use different IDs to prevent issues.
 
 <a id="nestedatt--timeouts"></a>
 ### Nested Schema for `timeouts`
