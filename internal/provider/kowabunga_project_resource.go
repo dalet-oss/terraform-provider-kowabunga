@@ -192,13 +192,14 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 	tags := []string{}
 	d.Tags.ElementsAs(context.TODO(), &tags, false)
+
 	metas := map[string]string{}
 	d.Metadatas.ElementsAs(context.TODO(), &metas, false)
 	metadatas := []sdk.Metadata{}
 	for k, v := range metas {
 		m := sdk.Metadata{
-			Key:   &k,
-			Value: &v,
+			Key:   k,
+			Value: v,
 		}
 		metadatas = append(metadatas, m)
 	}
@@ -269,20 +270,19 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 	} else {
 		d.Pubkey = types.StringValue("")
 	}
+
 	tags := []attr.Value{}
 	for _, t := range r.Tags {
 		tags = append(tags, types.StringValue(t))
 	}
 	d.Tags, _ = types.ListValue(types.StringType, tags)
+
 	metadatas := map[string]attr.Value{}
 	for _, m := range r.Metadatas {
-		if m.Value != nil {
-			metadatas[*m.Key] = types.StringPointerValue(m.Value)
-		} else {
-			metadatas[*m.Key] = types.StringValue("")
-		}
+		metadatas[m.Key] = types.StringValue(m.Value)
 	}
 	d.Metadatas = basetypes.NewMapValueMust(types.StringType, metadatas)
+
 	if r.Quotas.Instances != nil {
 		d.MaxInstances = types.Int64Value(int64(*r.Quotas.Instances))
 	} else {
