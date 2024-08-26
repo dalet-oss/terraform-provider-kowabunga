@@ -3,10 +3,10 @@ BIN = terraform-provider-kowabunga
 LDFLAGS += -X main.version=$$(git describe --always --abbrev=40 --dirty)
 
 GOVULNCHECK = $(BINDIR)/govulncheck
-GOVULNCHECK_VERSION = v1.0.4
+GOVULNCHECK_VERSION = v1.1.3
 
 GOLINT = $(BINDIR)/golangci-lint
-GOLINT_VERSION = v1.56.2
+GOLINT_VERSION = v1.60.3
 
 V = 0
 Q = $(if $(filter 1,$V),,@)
