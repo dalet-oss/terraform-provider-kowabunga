@@ -323,7 +323,7 @@ func getSubnetID(ctx context.Context, data *KowabungaProviderData, id string) (s
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownSubnet)
+	return "", fmt.Errorf("%s", ErrorUnknownSubnet)
 }
 
 func getProjectID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
@@ -344,7 +344,7 @@ func getProjectID(ctx context.Context, data *KowabungaProviderData, id string) (
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownProject)
+	return "", fmt.Errorf("%s", ErrorUnknownProject)
 }
 
 func getPoolID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
@@ -365,7 +365,7 @@ func getPoolID(ctx context.Context, data *KowabungaProviderData, id string) (str
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownPool)
+	return "", fmt.Errorf("%s", ErrorUnknownPool)
 }
 
 func getNfsID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
@@ -386,7 +386,7 @@ func getNfsID(ctx context.Context, data *KowabungaProviderData, id string) (stri
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownNfs)
+	return "", fmt.Errorf("%s", ErrorUnknownNfs)
 }
 
 func getTemplateID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
@@ -407,5 +407,5 @@ func getTemplateID(ctx context.Context, data *KowabungaProviderData, id string) 
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownTemplate)
+	return "", fmt.Errorf("%s", ErrorUnknownTemplate)
 }
