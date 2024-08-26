@@ -15,6 +15,11 @@ M = $(shell printf "\033[34;1m▶\033[0m")
 .PHONY: all
 all: mod fmt lint vet $(BIN) ; @
 
+# Updates all go modules
+update: ; $(info $(M) updating modules…) @
+	$Q go get -u ./...
+	$Q go mod tidy
+
 .PHONY: mod
 mod: ; $(info $(M) collecting modules…) @
 	$Q go mod download
