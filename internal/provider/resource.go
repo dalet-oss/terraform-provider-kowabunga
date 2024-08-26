@@ -260,7 +260,7 @@ func getRegionID(ctx context.Context, data *KowabungaProviderData, id string) (s
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownRegion)
+	return "", fmt.Errorf("%s", ErrorUnknownRegion)
 }
 
 func getZoneID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
@@ -281,7 +281,7 @@ func getZoneID(ctx context.Context, data *KowabungaProviderData, id string) (str
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownZone)
+	return "", fmt.Errorf("%s", ErrorUnknownZone)
 }
 
 func getVNetID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
@@ -302,7 +302,7 @@ func getVNetID(ctx context.Context, data *KowabungaProviderData, id string) (str
 		}
 	}
 
-	return "", fmt.Errorf(ErrorUnknownVNet)
+	return "", fmt.Errorf("%s", ErrorUnknownVNet)
 }
 
 func getSubnetID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
