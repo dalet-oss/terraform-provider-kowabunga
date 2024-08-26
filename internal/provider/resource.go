@@ -115,6 +115,10 @@ const (
 	KeyUsers            = "users"
 	KeyGroups           = "groups"
 	KeyVRIDs            = "vrids"
+	KeyFailover         = "failover"
+	KeyEndpoints        = "endpoints"
+	KeyBackendPort      = "backend_port"
+	KeyBackendIPs       = "backend_ips"
 )
 
 const (
