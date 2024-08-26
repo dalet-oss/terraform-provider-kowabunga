@@ -676,7 +676,6 @@ func kgwModelToNetworkConfig(ctx *context.Context, r *sdk.KGW, d *KgwResourceMod
 	if len(r.Netip.Zones) == 0 {
 		nc[KeyZones] = types.ListNull(types.ObjectType{AttrTypes: zoneNetCfgType})
 	} else {
-
 		nc[KeyZones], _ = types.ListValue(types.ObjectType{AttrTypes: zoneNetCfgType}, zoneNetCfg)
 	}
 
