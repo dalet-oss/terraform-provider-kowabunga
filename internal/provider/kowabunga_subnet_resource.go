@@ -3,9 +3,8 @@ package provider
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
-
-	"golang.org/x/exp/maps"
 
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 

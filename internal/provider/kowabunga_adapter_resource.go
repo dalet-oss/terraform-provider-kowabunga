@@ -3,9 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/3th1nk/cidr"
-	"golang.org/x/exp/maps"
 
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 

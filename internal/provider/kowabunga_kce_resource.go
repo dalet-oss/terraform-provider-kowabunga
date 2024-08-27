@@ -2,8 +2,7 @@ package provider
 
 import (
 	"context"
-
-	"golang.org/x/exp/maps"
+	"maps"
 
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
 
