@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -20,24 +20,24 @@ import (
 )
 
 const (
-	KfsResourceName = "kfs"
+	KyloResourceName = "kylo"
 
-	KfsDefaultValueNfs        = ""
-	KfsDefaultValueAccessType = "RW"
+	KyloDefaultValueNfs        = ""
+	KyloDefaultValueAccessType = "RW"
 )
 
-var _ resource.Resource = &KfsResource{}
-var _ resource.ResourceWithImportState = &KfsResource{}
+var _ resource.Resource = &KyloResource{}
+var _ resource.ResourceWithImportState = &KyloResource{}
 
-func NewKfsResource() resource.Resource {
-	return &KfsResource{}
+func NewKyloResource() resource.Resource {
+	return &KyloResource{}
 }
 
-type KfsResource struct {
+type KyloResource struct {
 	Data *KowabungaProviderData
 }
 
-type KfsResourceModel struct {
+type KyloResourceModel struct {
 	ID        types.String   `tfsdk:"id"`
 	Timeouts  timeouts.Value `tfsdk:"timeouts"`
 	Name      types.String   `tfsdk:"name"`
@@ -51,20 +51,20 @@ type KfsResourceModel struct {
 	Endpoint types.String `tfsdk:"endpoint"`
 }
 
-func (r *KfsResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, KfsResourceName)
+func (r *KyloResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, KyloResourceName)
 }
 
-func (r *KfsResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *KyloResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 	resource.ImportStatePassthroughID(ctx, path.Root(KeyIP), req, resp)
 }
 
-func (r *KfsResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *KyloResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *KyloResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	prot := []attr.Value{
 		types.Int64Value(3),
 		types.Int64Value(4),
@@ -72,7 +72,7 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 	protocols, _ := types.ListValue(types.Int64Type, prot)
 
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a KFS distributed network storage resource. **KFS** (stands for *Kowabunga File System*) provides an elastic NFS-compatible endpoint.",
+		MarkdownDescription: "Manages a Kylo distributed network storage resource. **Kylo** provides an elastic NFS-compatible endpoint.",
 		Attributes: map[string]schema.Attribute{
 			KeyProject: schema.StringAttribute{
 				MarkdownDescription: "Associated project name or ID",
@@ -86,16 +86,16 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated NFS storage name or ID (zone's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(KfsDefaultValueNfs),
+				Default:             stringdefault.StaticString(KyloDefaultValueNfs),
 			},
 			KeyAccessType: schema.StringAttribute{
-				MarkdownDescription: "KFS' access type. Allowed values: 'RW' or 'RO'. Defaults to RW.",
+				MarkdownDescription: "Kylo' access type. Allowed values: 'RW' or 'RO'. Defaults to RW.",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(KfsDefaultValueAccessType),
+				Default:             stringdefault.StaticString(KyloDefaultValueAccessType),
 			},
 			KeyProtocols: schema.ListAttribute{
-				MarkdownDescription: "KFS's requested NFS protocols versions (defaults to NFSv3 and NFSv4))",
+				MarkdownDescription: "Kylo's requested NFS protocols versions (defaults to NFSv3 and NFSv4))",
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -113,8 +113,8 @@ func (r *KfsResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
-// converts kfs from Terraform model to Kowabunga API model
-func kfsResourceToModel(d *KfsResourceModel) sdk.KFS {
+// converts kylo from Terraform model to Kowabunga API model
+func kyloResourceToModel(d *KyloResourceModel) sdk.Kylo {
 	protocols64 := []int64{}
 	d.Protocols.ElementsAs(context.TODO(), &protocols64, false)
 	protocols32 := []int32{}
@@ -122,7 +122,7 @@ func kfsResourceToModel(d *KfsResourceModel) sdk.KFS {
 		protocols32 = append(protocols32, int32(p))
 	}
 
-	return sdk.KFS{
+	return sdk.Kylo{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
 		Access:      d.Access.ValueStringPointer(),
@@ -131,8 +131,8 @@ func kfsResourceToModel(d *KfsResourceModel) sdk.KFS {
 	}
 }
 
-// converts kfs from Kowabunga API model to Terraform model
-func kfsModelToResource(r *sdk.KFS, d *KfsResourceModel) {
+// converts kylo from Kowabunga API model to Terraform model
+func kyloModelToResource(r *sdk.Kylo, d *KyloResourceModel) {
 	if r == nil {
 		return
 	}
@@ -146,7 +146,7 @@ func kfsModelToResource(r *sdk.KFS, d *KfsResourceModel) {
 	if r.Access != nil {
 		d.Access = types.StringPointerValue(r.Access)
 	} else {
-		d.Access = types.StringValue(KfsDefaultValueAccessType)
+		d.Access = types.StringValue(KyloDefaultValueAccessType)
 	}
 	protocols := []attr.Value{}
 	for _, p := range r.Protocols {
@@ -160,8 +160,8 @@ func kfsModelToResource(r *sdk.KFS, d *KfsResourceModel) {
 	}
 }
 
-func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *KfsResourceModel
+func (r *KyloResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *KyloResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -193,25 +193,25 @@ func (r *KfsResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// find parent NFS storage (optional)
 	nfsId, _ := getNfsID(ctx, r.Data, data.Nfs.ValueString())
 
-	// create a new KFS
-	m := kfsResourceToModel(data)
-	api := r.Data.K.ProjectAPI.CreateProjectRegionKFS(ctx, projectId, regionId).KFS(m)
+	// create a new Kylo
+	m := kyloResourceToModel(data)
+	api := r.Data.K.ProjectAPI.CreateProjectRegionKylo(ctx, projectId, regionId).Kylo(m)
 	if nfsId != "" {
 		api = api.NfsId(nfsId)
 	}
-	kfs, _, err := api.Execute()
+	kylo, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringPointerValue(kfs.Id)
-	kfsModelToResource(kfs, data) // read back resulting object
-	tflog.Trace(ctx, "created KFS resource")
+	data.ID = types.StringPointerValue(kylo.Id)
+	kyloModelToResource(kylo, data) // read back resulting object
+	tflog.Trace(ctx, "created Kylo resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KfsResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *KfsResourceModel
+func (r *KyloResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *KyloResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -228,18 +228,18 @@ func (r *KfsResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	kfs, _, err := r.Data.K.KfsAPI.ReadKFS(ctx, data.ID.ValueString()).Execute()
+	kylo, _, err := r.Data.K.KyloAPI.ReadKylo(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	kfsModelToResource(kfs, data)
+	kyloModelToResource(kylo, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KfsResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *KfsResourceModel
+func (r *KyloResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *KyloResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -256,8 +256,8 @@ func (r *KfsResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := kfsResourceToModel(data)
-	_, _, err := r.Data.K.KfsAPI.UpdateKFS(ctx, data.ID.ValueString()).KFS(m).Execute()
+	m := kyloResourceToModel(data)
+	_, _, err := r.Data.K.KyloAPI.UpdateKylo(ctx, data.ID.ValueString()).Kylo(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -266,8 +266,8 @@ func (r *KfsResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KfsResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *KfsResourceModel
+func (r *KyloResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *KyloResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -283,7 +283,7 @@ func (r *KfsResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	_, err := r.Data.K.KfsAPI.DeleteKFS(ctx, data.ID.ValueString()).Execute()
+	_, err := r.Data.K.KyloAPI.DeleteKylo(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return

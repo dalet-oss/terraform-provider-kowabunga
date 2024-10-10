@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -18,25 +18,25 @@ import (
 )
 
 const (
-	HostResourceName = "host"
+	KaktusResourceName = "kaktus"
 
-	HostDefaultValueCurrent          = "EUR"
-	HostDefaultValueCpuOverCommit    = 3
-	HostDefaultValueMemoryOverCommit = 2
+	KaktusDefaultValueCurrent          = "EUR"
+	KaktusDefaultValueCpuOverCommit    = 3
+	KaktusDefaultValueMemoryOverCommit = 2
 )
 
-var _ resource.Resource = &HostResource{}
-var _ resource.ResourceWithImportState = &HostResource{}
+var _ resource.Resource = &KaktusResource{}
+var _ resource.ResourceWithImportState = &KaktusResource{}
 
-func NewHostResource() resource.Resource {
-	return &HostResource{}
+func NewKaktusResource() resource.Resource {
+	return &KaktusResource{}
 }
 
-type HostResource struct {
+type KaktusResource struct {
 	Data *KowabungaProviderData
 }
 
-type HostResourceModel struct {
+type KaktusResourceModel struct {
 	ID               types.String   `tfsdk:"id"`
 	Timeouts         timeouts.Value `tfsdk:"timeouts"`
 	Name             types.String   `tfsdk:"name"`
@@ -50,58 +50,58 @@ type HostResourceModel struct {
 	Agents           types.List     `tfsdk:"agents"`
 }
 
-func (r *HostResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, HostResourceName)
+func (r *KaktusResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, KaktusResourceName)
 }
 
-func (r *HostResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *KaktusResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 }
 
-func (r *HostResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *KaktusResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *KaktusResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a host resource",
+		MarkdownDescription: "Manages a kaktus node resource",
 		Attributes: map[string]schema.Attribute{
 			KeyZone: schema.StringAttribute{
 				MarkdownDescription: "Associated zone name or ID",
 				Required:            true,
 			},
 			KeyCpuPrice: schema.Float64Attribute{
-				MarkdownDescription: "Host monthly CPU price value (default: 0)",
+				MarkdownDescription: "Kaktus node monthly CPU price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
 				Default:             float64default.StaticFloat64(0),
 			},
 			KeyMemoryPrice: schema.Float64Attribute{
-				MarkdownDescription: "Host monthly Memory price value (default: 0)",
+				MarkdownDescription: "Kaktus node monthly Memory price value (default: 0)",
 				Computed:            true,
 				Optional:            true,
 				Default:             float64default.StaticFloat64(0),
 			},
 			KeyCurrency: schema.StringAttribute{
-				MarkdownDescription: "Host monthly price currency (default: **EUR**)",
+				MarkdownDescription: "Kaktus node monthly price currency (default: **EUR**)",
 				Computed:            true,
 				Optional:            true,
-				Default:             stringdefault.StaticString(HostDefaultValueCurrent),
+				Default:             stringdefault.StaticString(KaktusDefaultValueCurrent),
 			},
 			KeyCpuOvercommit: schema.Int64Attribute{
-				MarkdownDescription: "Host CPU over-commit factor (default: 3)",
+				MarkdownDescription: "Kaktus node CPU over-commit factor (default: 3)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(HostDefaultValueCpuOverCommit),
+				Default:             int64default.StaticInt64(KaktusDefaultValueCpuOverCommit),
 			},
 			KeyMemoryOvercommit: schema.Int64Attribute{
-				MarkdownDescription: "Host Memory over-commit factor (default: 2)",
+				MarkdownDescription: "Kaktus node memory over-commit factor (default: 2)",
 				Computed:            true,
 				Optional:            true,
-				Default:             int64default.StaticInt64(HostDefaultValueMemoryOverCommit),
+				Default:             int64default.StaticInt64(KaktusDefaultValueMemoryOverCommit),
 			},
 			KeyAgents: schema.ListAttribute{
-				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the host",
+				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the kaktus node",
 				ElementType:         types.StringType,
 				Required:            true,
 			},
@@ -110,12 +110,12 @@ func (r *HostResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
-// converts host from Terraform model to Kowabunga API model
-func hostResourceToModel(d *HostResourceModel) sdk.Host {
+// converts kaktus from Terraform model to Kowabunga API model
+func kaktusResourceToModel(d *KaktusResourceModel) sdk.Kaktus {
 	agents := []string{}
 	d.Agents.ElementsAs(context.TODO(), &agents, false)
 
-	return sdk.Host{
+	return sdk.Kaktus{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
 		CpuCost: sdk.Cost{
@@ -132,8 +132,8 @@ func hostResourceToModel(d *HostResourceModel) sdk.Host {
 	}
 }
 
-// converts host from Kowabunga API model to Terraform model
-func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
+// converts kaktus from Kowabunga API model to Terraform model
+func kaktusModelToResource(r *sdk.Kaktus, d *KaktusResourceModel) {
 	if r == nil {
 		return
 	}
@@ -150,12 +150,12 @@ func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
 	if r.OvercommitCpuRatio != nil {
 		d.CpuOvercommit = types.Int64PointerValue(r.OvercommitCpuRatio)
 	} else {
-		d.CpuOvercommit = types.Int64Value(HostDefaultValueCpuOverCommit)
+		d.CpuOvercommit = types.Int64Value(KaktusDefaultValueCpuOverCommit)
 	}
 	if r.OvercommitMemoryRatio != nil {
 		d.MemoryOvercommit = types.Int64PointerValue(r.OvercommitMemoryRatio)
 	} else {
-		d.MemoryOvercommit = types.Int64Value(HostDefaultValueMemoryOverCommit)
+		d.MemoryOvercommit = types.Int64Value(KaktusDefaultValueMemoryOverCommit)
 	}
 	agents := []attr.Value{}
 	for _, a := range r.Agents {
@@ -164,8 +164,8 @@ func hostModelToResource(r *sdk.Host, d *HostResourceModel) {
 	d.Agents, _ = types.ListValue(types.StringType, agents)
 }
 
-func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *HostResourceModel
+func (r *KaktusResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *KaktusResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -188,21 +188,21 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 		errorCreateGeneric(resp, err)
 		return
 	}
-	// create a new host
-	m := hostResourceToModel(data)
-	host, _, err := r.Data.K.ZoneAPI.CreateHost(ctx, zoneId).Host(m).Execute()
+	// create a new kaktus
+	m := kaktusResourceToModel(data)
+	kaktus, _, err := r.Data.K.ZoneAPI.CreateKaktus(ctx, zoneId).Kaktus(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringPointerValue(host.Id)
-	hostModelToResource(host, data) // read back resulting object
-	tflog.Trace(ctx, "created host resource")
+	data.ID = types.StringPointerValue(kaktus.Id)
+	kaktusModelToResource(kaktus, data) // read back resulting object
+	tflog.Trace(ctx, "created kaktus resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *HostResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *HostResourceModel
+func (r *KaktusResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *KaktusResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -219,18 +219,18 @@ func (r *HostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	host, _, err := r.Data.K.HostAPI.ReadHost(ctx, data.ID.ValueString()).Execute()
+	kaktus, _, err := r.Data.K.KaktusAPI.ReadKaktus(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	hostModelToResource(host, data)
+	kaktusModelToResource(kaktus, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *HostResourceModel
+func (r *KaktusResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *KaktusResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -247,8 +247,8 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := hostResourceToModel(data)
-	_, _, err := r.Data.K.HostAPI.UpdateHost(ctx, data.ID.ValueString()).Host(m).Execute()
+	m := kaktusResourceToModel(data)
+	_, _, err := r.Data.K.KaktusAPI.UpdateKaktus(ctx, data.ID.ValueString()).Kaktus(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -256,8 +256,8 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *HostResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *HostResourceModel
+func (r *KaktusResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *KaktusResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -273,7 +273,7 @@ func (r *HostResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	_, err := r.Data.K.HostAPI.DeleteHost(ctx, data.ID.ValueString()).Execute()
+	_, err := r.Data.K.KaktusAPI.DeleteKaktus(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return

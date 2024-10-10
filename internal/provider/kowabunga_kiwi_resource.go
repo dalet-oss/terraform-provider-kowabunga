@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -15,21 +15,21 @@ import (
 )
 
 const (
-	NetGWResourceName = "netgw"
+	KiwiResourceName = "kiwi"
 )
 
-var _ resource.Resource = &NetGWResource{}
-var _ resource.ResourceWithImportState = &NetGWResource{}
+var _ resource.Resource = &KiwiResource{}
+var _ resource.ResourceWithImportState = &KiwiResource{}
 
-func NewNetGWResource() resource.Resource {
-	return &NetGWResource{}
+func NewKiwiResource() resource.Resource {
+	return &KiwiResource{}
 }
 
-type NetGWResource struct {
+type KiwiResource struct {
 	Data *KowabungaProviderData
 }
 
-type NetGWResourceModel struct {
+type KiwiResourceModel struct {
 	ID       types.String   `tfsdk:"id"`
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Name     types.String   `tfsdk:"name"`
@@ -38,28 +38,28 @@ type NetGWResourceModel struct {
 	Agents   types.List     `tfsdk:"agents"`
 }
 
-func (r *NetGWResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, NetGWResourceName)
+func (r *KiwiResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, KiwiResourceName)
 }
 
-func (r *NetGWResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *KiwiResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 }
 
-func (r *NetGWResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *KiwiResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *NetGWResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *KiwiResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a netgw resource",
+		MarkdownDescription: "Manages a Kiwi resource",
 		Attributes: map[string]schema.Attribute{
 			KeyRegion: schema.StringAttribute{
 				MarkdownDescription: "Associated region name or ID",
 				Required:            true,
 			},
 			KeyAgents: schema.ListAttribute{
-				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the network gateway",
+				MarkdownDescription: "The list of Kowabunga remote agents to be associated with the Kiwi network gateway",
 				ElementType:         types.StringType,
 				Required:            true,
 			},
@@ -68,21 +68,21 @@ func (r *NetGWResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
-// converts netgw from Terraform model to Kowabunga API model
-func netgwResourceToModel(d *NetGWResourceModel) sdk.NetGW {
+// converts kiwi from Terraform model to Kowabunga API model
+func kiwiResourceToModel(d *KiwiResourceModel) sdk.Kiwi {
 
 	agents := []string{}
 	d.Agents.ElementsAs(context.TODO(), &agents, false)
 
-	return sdk.NetGW{
+	return sdk.Kiwi{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
 		Agents:      agents,
 	}
 }
 
-// converts netgw from Kowabunga API model to Terraform model
-func netgwModelToResource(r *sdk.NetGW, d *NetGWResourceModel) {
+// converts kiwi from Kowabunga API model to Terraform model
+func kiwiModelToResource(r *sdk.Kiwi, d *KiwiResourceModel) {
 	if r == nil {
 		return
 	}
@@ -100,8 +100,8 @@ func netgwModelToResource(r *sdk.NetGW, d *NetGWResourceModel) {
 	d.Agents, _ = types.ListValue(types.StringType, agents)
 }
 
-func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *NetGWResourceModel
+func (r *KiwiResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *KiwiResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -125,20 +125,20 @@ func (r *NetGWResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 	// create a new network gateway
-	m := netgwResourceToModel(data)
-	netgw, _, err := r.Data.K.RegionAPI.CreateNetGW(ctx, regionId).NetGW(m).Execute()
+	m := kiwiResourceToModel(data)
+	kiwi, _, err := r.Data.K.RegionAPI.CreateKiwi(ctx, regionId).Kiwi(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringPointerValue(netgw.Id)
-	netgwModelToResource(netgw, data) // read back resulting object
-	tflog.Trace(ctx, "created netgw resource")
+	data.ID = types.StringPointerValue(kiwi.Id)
+	kiwiModelToResource(kiwi, data) // read back resulting object
+	tflog.Trace(ctx, "created kiwi resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *NetGWResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *NetGWResourceModel
+func (r *KiwiResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *KiwiResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -155,18 +155,18 @@ func (r *NetGWResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	netgw, _, err := r.Data.K.NetgwAPI.ReadNetGW(ctx, data.ID.ValueString()).Execute()
+	kiwi, _, err := r.Data.K.KiwiAPI.ReadKiwi(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	netgwModelToResource(netgw, data)
+	kiwiModelToResource(kiwi, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *NetGWResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *NetGWResourceModel
+func (r *KiwiResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *KiwiResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -183,8 +183,8 @@ func (r *NetGWResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := netgwResourceToModel(data)
-	_, _, err := r.Data.K.NetgwAPI.UpdateNetGW(ctx, data.ID.ValueString()).NetGW(m).Execute()
+	m := kiwiResourceToModel(data)
+	_, _, err := r.Data.K.KiwiAPI.UpdateKiwi(ctx, data.ID.ValueString()).Kiwi(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -193,8 +193,8 @@ func (r *NetGWResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *NetGWResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *NetGWResourceModel
+func (r *KiwiResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *KiwiResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -211,7 +211,7 @@ func (r *NetGWResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	_, err := r.Data.K.NetgwAPI.DeleteNetGW(ctx, data.ID.ValueString()).Execute()
+	_, err := r.Data.K.KiwiAPI.DeleteKiwi(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return

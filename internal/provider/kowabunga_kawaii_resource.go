@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -22,28 +22,28 @@ import (
 )
 
 const (
-	KgwResourceName = "kgw"
+	KawaiiResourceName = "kawaii"
 
-	KgwDefaultValueProtocol      = "tcp"
-	KgwDefaultValueIngressPolicy = "drop"
-	KgwDefaultValueEgressPolicy  = "accept"
-	KgwDefaultValueForwardPolicy = "drop"
-	KgwDefaultValueSource        = "0.0.0.0/0"
-	KgwDefaultValueDestination   = "0.0.0.0/0"
+	KawaiiDefaultValueProtocol      = "tcp"
+	KawaiiDefaultValueIngressPolicy = "drop"
+	KawaiiDefaultValueEgressPolicy  = "accept"
+	KawaiiDefaultValueForwardPolicy = "drop"
+	KawaiiDefaultValueSource        = "0.0.0.0/0"
+	KawaiiDefaultValueDestination   = "0.0.0.0/0"
 )
 
-var _ resource.Resource = &KgwResource{}
-var _ resource.ResourceWithImportState = &KgwResource{}
+var _ resource.Resource = &KawaiiResource{}
+var _ resource.ResourceWithImportState = &KawaiiResource{}
 
-func NewKgwResource() resource.Resource {
-	return &KgwResource{}
+func NewKawaiiResource() resource.Resource {
+	return &KawaiiResource{}
 }
 
-type KgwResource struct {
+type KawaiiResource struct {
 	Data *KowabungaProviderData
 }
 
-type KgwResourceModel struct {
+type KawaiiResourceModel struct {
 	ID       types.String   `tfsdk:"id"`
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Desc     types.String   `tfsdk:"desc"`
@@ -51,83 +51,83 @@ type KgwResourceModel struct {
 	Region   types.String   `tfsdk:"region"`
 
 	NetworkCfg   types.Object `tfsdk:"netcfg"`        // read-only
-	IngressRules types.List   `tfsdk:"ingress_rules"` // KgwIngressRule
+	IngressRules types.List   `tfsdk:"ingress_rules"` // KawaiiIngressRule
 	EgressPolicy types.String `tfsdk:"egress_policy"`
-	EgressRules  types.List   `tfsdk:"egress_rules"` // KgwEgressRule
-	NatRules     types.List   `tfsdk:"nat_rules"`    // KgwNatRule
-	VpcPeerings  types.List   `tfsdk:"vpc_peerings"` // KgwVpcPeering
+	EgressRules  types.List   `tfsdk:"egress_rules"` // KawaiiEgressRule
+	NatRules     types.List   `tfsdk:"nat_rules"`    // KawaiiNatRule
+	VpcPeerings  types.List   `tfsdk:"vpc_peerings"` // KawaiiVpcPeering
 }
 
-type KgwNetworkConfig struct {
+type KawaiiNetworkConfig struct {
 	PublicIPs  types.List `tfsdk:"public_ips"`  // []string
 	PrivateIPs types.List `tfsdk:"private_ips"` // []string
-	Zones      types.List `tfsdk:"zones"`       // KgwNetworkZoneConfig
+	Zones      types.List `tfsdk:"zones"`       // KawaiiNetworkZoneConfig
 }
 
-type KgwNetworkZoneConfig struct {
+type KawaiiNetworkZoneConfig struct {
 	Zone      types.String `tfsdk:"zone"`
 	PublicIp  types.String `tfsdk:"public_ip"`
 	PrivateIp types.String `tfsdk:"private_ip"`
 }
 
-type KgwIngressRule struct {
+type KawaiiIngressRule struct {
 	Source   types.String `tfsdk:"source"`
 	Protocol types.String `tfsdk:"protocol"`
 	Ports    types.String `tfsdk:"ports"`
 }
 
-type KgwEgressRule struct {
+type KawaiiEgressRule struct {
 	Destination types.String `tfsdk:"destination"`
 	Protocol    types.String `tfsdk:"protocol"`
 	Ports       types.String `tfsdk:"ports"`
 }
 
-type KgwForwardRule struct {
+type KawaiiForwardRule struct {
 	Protocol types.String `tfsdk:"protocol"`
 	Ports    types.String `tfsdk:"ports"`
 }
 
-type KgwNatRule struct {
+type KawaiiNatRule struct {
 	Destination types.String `tfsdk:"destination"`
 	Protocol    types.String `tfsdk:"protocol"`
 	Ports       types.String `tfsdk:"ports"`
 }
 
-type KgwVpcPeering struct {
+type KawaiiVpcPeering struct {
 	Subnet       types.String `tfsdk:"subnet"`
 	Policy       types.String `tfsdk:"policy"`
-	IngressRules types.List   `tfsdk:"ingress_rules"` // KgwForwardRule
-	EgressRules  types.List   `tfsdk:"egress_rules"`  // KgwForwardRule
-	NetworkCfg   types.List   `tfsdk:"netcfg"`        // KgwVpcPeeringNetworkZoneConfig, read-only
+	IngressRules types.List   `tfsdk:"ingress_rules"` // KawaiiForwardRule
+	EgressRules  types.List   `tfsdk:"egress_rules"`  // KawaiiForwardRule
+	NetworkCfg   types.List   `tfsdk:"netcfg"`        // KawaiiVpcPeeringNetworkZoneConfig, read-only
 }
 
-type KgwVpcPeeringNetworkZoneConfig struct {
+type KawaiiVpcPeeringNetworkZoneConfig struct {
 	Zone      types.String `tfsdk:"zone"`
 	PrivateIp types.String `tfsdk:"private_ip"`
 }
 
-func (r *KgwResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, KgwResourceName)
+func (r *KawaiiResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, KawaiiResourceName)
 }
 
-func (r *KgwResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *KawaiiResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 }
 
-func (r *KgwResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *KawaiiResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *KgwResource) SchemaNetworkZoneConfig() schema.ListNestedAttribute {
+func (r *KawaiiResource) SchemaNetworkZoneConfig() schema.ListNestedAttribute {
 	return schema.ListNestedAttribute{
-		MarkdownDescription: "KGW per-zone list of Kowabunga virtual IP addresses (read-only)",
+		MarkdownDescription: "Kawaii per-zone list of Kowabunga virtual IP addresses (read-only)",
 		Required:            false,
 		Optional:            false,
 		Computed:            true,
 		NestedObject: schema.NestedAttributeObject{
 			Attributes: map[string]schema.Attribute{
 				KeyZone: schema.StringAttribute{
-					MarkdownDescription: "KGW zone name (read-only)",
+					MarkdownDescription: "Kawaii zone name (read-only)",
 					Required:            false,
 					Optional:            false,
 					Computed:            true,
@@ -136,7 +136,7 @@ func (r *KgwResource) SchemaNetworkZoneConfig() schema.ListNestedAttribute {
 					},
 				},
 				KeyPublicIP: schema.StringAttribute{
-					MarkdownDescription: "KGW zone gateway public virtual IP (read-only)",
+					MarkdownDescription: "Kawaii zone gateway public virtual IP (read-only)",
 					Required:            false,
 					Optional:            false,
 					Computed:            true,
@@ -145,7 +145,7 @@ func (r *KgwResource) SchemaNetworkZoneConfig() schema.ListNestedAttribute {
 					},
 				},
 				KeyPrivateIP: schema.StringAttribute{
-					MarkdownDescription: "KGW zone gateway private virtual IP (read-only).",
+					MarkdownDescription: "Kawaii zone gateway private virtual IP (read-only).",
 					Required:            false,
 					Optional:            false,
 					Computed:            true,
@@ -158,22 +158,22 @@ func (r *KgwResource) SchemaNetworkZoneConfig() schema.ListNestedAttribute {
 	}
 }
 
-func (r *KgwResource) SchemaNetworkConfig() schema.SingleNestedAttribute {
+func (r *KawaiiResource) SchemaNetworkConfig() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
-		MarkdownDescription: "KGW list of assigned virtual IPs per-zone addresses (read-only)",
+		MarkdownDescription: "Kawaii list of assigned virtual IPs per-zone addresses (read-only)",
 		Required:            false,
 		Optional:            false,
 		Computed:            true,
 		Attributes: map[string]schema.Attribute{
 			KeyPublicIPs: schema.ListAttribute{
-				MarkdownDescription: "KGW global public gateways virtual IP addresses (read-only).",
+				MarkdownDescription: "Kawaii global public gateways virtual IP addresses (read-only).",
 				Required:            false,
 				Optional:            false,
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
 			KeyPrivateIPs: schema.ListAttribute{
-				MarkdownDescription: "KGW global private gateways virtual IP addresses (read-only).",
+				MarkdownDescription: "Kawaii global private gateways virtual IP addresses (read-only).",
 				Required:            false,
 				Optional:            false,
 				Computed:            true,
@@ -187,9 +187,9 @@ func (r *KgwResource) SchemaNetworkConfig() schema.SingleNestedAttribute {
 	}
 }
 
-func (r *KgwResource) SchemaIngressRules() schema.ListNestedAttribute {
+func (r *KawaiiResource) SchemaIngressRules() schema.ListNestedAttribute {
 	return schema.ListNestedAttribute{
-		MarkdownDescription: "The KGW public firewall list of ingress rules. KGW default policy is to drop all incoming traffic, including ICMP. Specified ruleset will be explicitly accepted.",
+		MarkdownDescription: "The Kawaii public firewall list of ingress rules. Kawaii default policy is to drop all incoming traffic, including ICMP. Specified ruleset will be explicitly accepted.",
 		Optional:            true,
 		NestedObject: schema.NestedAttributeObject{
 			Attributes: map[string]schema.Attribute{
@@ -197,7 +197,7 @@ func (r *KgwResource) SchemaIngressRules() schema.ListNestedAttribute {
 					MarkdownDescription: "The source IP or CIDR to accept public traffic from (defaults to 0.0.0.0/0).",
 					Optional:            true,
 					Computed:            true,
-					Default:             stringdefault.StaticString(KgwDefaultValueSource),
+					Default:             stringdefault.StaticString(KawaiiDefaultValueSource),
 					Validators: []validator.String{
 						&stringNetworkAddressValidator{},
 					},
@@ -206,7 +206,7 @@ func (r *KgwResource) SchemaIngressRules() schema.ListNestedAttribute {
 					MarkdownDescription: "The transport layer protocol to accept public traffic from (defaults to 'tcp').",
 					Optional:            true,
 					Computed:            true,
-					Default:             stringdefault.StaticString(KgwDefaultValueProtocol),
+					Default:             stringdefault.StaticString(KawaiiDefaultValueProtocol),
 					Validators: []validator.String{
 						&stringNetworkProtocolValidator{},
 					},
@@ -223,9 +223,9 @@ func (r *KgwResource) SchemaIngressRules() schema.ListNestedAttribute {
 	}
 }
 
-func (r *KgwResource) SchemaEgressRules() schema.ListNestedAttribute {
+func (r *KawaiiResource) SchemaEgressRules() schema.ListNestedAttribute {
 	return schema.ListNestedAttribute{
-		MarkdownDescription: "KGW public firewall list of egress rules. KGW default policy is to accept all outgoing traffic, including ICMP. Specified ruleset will be explicitly dropped if egress_policy is set to accept, and explicitly accepted if egress policy is set to drop.",
+		MarkdownDescription: "Kawaii public firewall list of egress rules. Kawaii default policy is to accept all outgoing traffic, including ICMP. Specified ruleset will be explicitly dropped if egress_policy is set to accept, and explicitly accepted if egress policy is set to drop.",
 		Optional:            true,
 		NestedObject: schema.NestedAttributeObject{
 			Attributes: map[string]schema.Attribute{
@@ -233,7 +233,7 @@ func (r *KgwResource) SchemaEgressRules() schema.ListNestedAttribute {
 					MarkdownDescription: "The destination IP or CIDR to accept/drop public traffic to (defaults to 0.0.0.0/0) ",
 					Optional:            true,
 					Computed:            true,
-					Default:             stringdefault.StaticString(KgwDefaultValueDestination),
+					Default:             stringdefault.StaticString(KawaiiDefaultValueDestination),
 					Validators: []validator.String{
 						&stringNetworkAddressValidator{},
 					},
@@ -242,7 +242,7 @@ func (r *KgwResource) SchemaEgressRules() schema.ListNestedAttribute {
 					MarkdownDescription: "The transport layer protocol to accept/drop public traffic to (defaults to 'tcp')",
 					Optional:            true,
 					Computed:            true,
-					Default:             stringdefault.StaticString(KgwDefaultValueProtocol),
+					Default:             stringdefault.StaticString(KawaiiDefaultValueProtocol),
 					Validators: []validator.String{
 						&stringNetworkProtocolValidator{},
 					},
@@ -259,14 +259,14 @@ func (r *KgwResource) SchemaEgressRules() schema.ListNestedAttribute {
 	}
 }
 
-func (r *KgwResource) SchemaForwardRule() schema.NestedAttributeObject {
+func (r *KawaiiResource) SchemaForwardRule() schema.NestedAttributeObject {
 	return schema.NestedAttributeObject{
 		Attributes: map[string]schema.Attribute{
 			KeyProtocol: schema.StringAttribute{
 				MarkdownDescription: "The transport layer protocol to forward public traffic to (defaults to 'tcp')",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(KgwDefaultValueProtocol),
+				Default:             stringdefault.StaticString(KawaiiDefaultValueProtocol),
 				Validators: []validator.String{
 					&stringNetworkProtocolValidator{},
 				},
@@ -282,9 +282,9 @@ func (r *KgwResource) SchemaForwardRule() schema.NestedAttributeObject {
 	}
 }
 
-func (r *KgwResource) SchemaNatRules() schema.ListNestedAttribute {
+func (r *KawaiiResource) SchemaNatRules() schema.ListNestedAttribute {
 	return schema.ListNestedAttribute{
-		MarkdownDescription: "KGW list of NAT forwarding rules. KGW will forward public Internet traffic from all public virtual IPs to requested private subnet IP addresses.",
+		MarkdownDescription: "Kawaii list of NAT forwarding rules. Kawaii will forward public Internet traffic from all public virtual IPs to requested private subnet IP addresses.",
 		Optional:            true,
 		NestedObject: schema.NestedAttributeObject{
 			Attributes: map[string]schema.Attribute{
@@ -296,7 +296,7 @@ func (r *KgwResource) SchemaNatRules() schema.ListNestedAttribute {
 					MarkdownDescription: "The transport layer protocol to forward public traffic to (defaults to 'tcp')",
 					Optional:            true,
 					Computed:            true,
-					Default:             stringdefault.StaticString(KgwDefaultValueProtocol),
+					Default:             stringdefault.StaticString(KawaiiDefaultValueProtocol),
 					Validators: []validator.String{
 						&stringNetworkProtocolValidator{},
 					},
@@ -313,21 +313,21 @@ func (r *KgwResource) SchemaNatRules() schema.ListNestedAttribute {
 	}
 }
 
-func (r *KgwResource) SchemaVpcPeerings() schema.ListNestedAttribute {
+func (r *KawaiiResource) SchemaVpcPeerings() schema.ListNestedAttribute {
 	return schema.ListNestedAttribute{
-		MarkdownDescription: "KGW list of Kowabunga private VPC subnet peering rules.",
+		MarkdownDescription: "Kawaii list of Kowabunga private VPC subnet peering rules.",
 		Optional:            true,
 		NestedObject: schema.NestedAttributeObject{
 			Attributes: map[string]schema.Attribute{
 				KeySubnet: schema.StringAttribute{
-					MarkdownDescription: "Kowabunga Subnet ID to be peered with (subnet local IP addresses will be automatically assigned to KGW instances).",
+					MarkdownDescription: "Kowabunga Subnet ID to be peered with (subnet local IP addresses will be automatically assigned to Kawaii instances).",
 					Required:            true,
 				},
 				KeyPolicy: schema.StringAttribute{
 					MarkdownDescription: "The default VPC traffic forwarding policy: 'accept' (default) or 'drop'",
 					Optional:            true,
 					Computed:            true,
-					Default:             stringdefault.StaticString(KgwDefaultValueForwardPolicy),
+					Default:             stringdefault.StaticString(KawaiiDefaultValueForwardPolicy),
 					Validators: []validator.String{
 						&stringFirewallPolicyValidator{},
 					},
@@ -358,7 +358,7 @@ func (r *KgwResource) SchemaVpcPeerings() schema.ListNestedAttribute {
 					NestedObject: schema.NestedAttributeObject{
 						Attributes: map[string]schema.Attribute{
 							KeyZone: schema.StringAttribute{
-								MarkdownDescription: "KGW zone name (read-only).",
+								MarkdownDescription: "Kawaii zone name (read-only).",
 								Required:            false,
 								Optional:            false,
 								Computed:            true,
@@ -367,7 +367,7 @@ func (r *KgwResource) SchemaVpcPeerings() schema.ListNestedAttribute {
 								},
 							},
 							KeyPrivateIP: schema.StringAttribute{
-								MarkdownDescription: "KGW zone gateway private IP address in VPC peered subnet (read-only)",
+								MarkdownDescription: "Kawaii zone gateway private IP address in VPC peered subnet (read-only)",
 								Required:            false,
 								Optional:            false,
 								Computed:            true,
@@ -389,9 +389,9 @@ func (r *KgwResource) SchemaVpcPeerings() schema.ListNestedAttribute {
 	}
 }
 
-func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *KawaiiResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a KGW resource. **KGW** (stands for *Kowabunga Gateway*) is a resource that provides Nats & internet access capabilities for a given project.",
+		MarkdownDescription: "Manages a Kawaii resource. **Kawaii** is a resource that provides NATs & Internet access capabilities for a given project.",
 		Attributes: map[string]schema.Attribute{
 			KeyProject: schema.StringAttribute{
 				MarkdownDescription: "Associated project name or ID",
@@ -404,10 +404,10 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			KeyNetworkConfig: r.SchemaNetworkConfig(),
 			KeyIngressRules:  r.SchemaIngressRules(),
 			KeyEgressPolicy: schema.StringAttribute{
-				MarkdownDescription: "KGW default public traffic firewall egress policy: 'accept' (default) or 'drop'",
+				MarkdownDescription: "Kawaii default public traffic firewall egress policy: 'accept' (default) or 'drop'",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(KgwDefaultValueEgressPolicy),
+				Default:             stringdefault.StaticString(KawaiiDefaultValueEgressPolicy),
 				Validators: []validator.String{
 					&stringFirewallPolicyValidator{},
 				},
@@ -421,14 +421,14 @@ func (r *KgwResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 }
 
 //////////////////////////////////////////////////////////////
-// converts kgw from Terraform model to Kowabunga API model //
+// converts kawaii from Terraform model to Kowabunga API model //
 //////////////////////////////////////////////////////////////
 
-func kgwFirewallModel(ctx *context.Context, d *KgwResourceModel) sdk.KGWFirewall {
-	fwModel := sdk.KGWFirewall{
-		Ingress:      []sdk.KGWFirewallIngressRule{},
+func kawaiiFirewallModel(ctx *context.Context, d *KawaiiResourceModel) sdk.KawaiiFirewall {
+	fwModel := sdk.KawaiiFirewall{
+		Ingress:      []sdk.KawaiiFirewallIngressRule{},
 		EgressPolicy: d.EgressPolicy.ValueStringPointer(),
-		Egress:       []sdk.KGWFirewallEgressRule{},
+		Egress:       []sdk.KawaiiFirewallEgressRule{},
 	}
 
 	// Ingress Rules
@@ -440,7 +440,7 @@ func kgwFirewallModel(ctx *context.Context, d *KgwResourceModel) sdk.KGWFirewall
 		}
 	}
 	for _, ir := range ingressRules {
-		rule := KgwIngressRule{}
+		rule := KawaiiIngressRule{}
 		diags := ir.As(*ctx, &rule, basetypes.ObjectAsOptions{
 			UnhandledNullAsEmpty:    true,
 			UnhandledUnknownAsEmpty: true,
@@ -451,7 +451,7 @@ func kgwFirewallModel(ctx *context.Context, d *KgwResourceModel) sdk.KGWFirewall
 			}
 		}
 
-		fwModel.Ingress = append(fwModel.Ingress, sdk.KGWFirewallIngressRule{
+		fwModel.Ingress = append(fwModel.Ingress, sdk.KawaiiFirewallIngressRule{
 			Source:   rule.Source.ValueStringPointer(),
 			Protocol: rule.Protocol.ValueStringPointer(),
 			Ports:    rule.Ports.ValueString(),
@@ -467,7 +467,7 @@ func kgwFirewallModel(ctx *context.Context, d *KgwResourceModel) sdk.KGWFirewall
 		}
 	}
 	for _, er := range egressRules {
-		rule := KgwEgressRule{}
+		rule := KawaiiEgressRule{}
 		diags := er.As(*ctx, &rule, basetypes.ObjectAsOptions{
 			UnhandledNullAsEmpty:    true,
 			UnhandledUnknownAsEmpty: true,
@@ -478,7 +478,7 @@ func kgwFirewallModel(ctx *context.Context, d *KgwResourceModel) sdk.KGWFirewall
 			}
 		}
 
-		fwModel.Egress = append(fwModel.Egress, sdk.KGWFirewallEgressRule{
+		fwModel.Egress = append(fwModel.Egress, sdk.KawaiiFirewallEgressRule{
 			Destination: rule.Destination.ValueStringPointer(),
 			Protocol:    rule.Protocol.ValueStringPointer(),
 			Ports:       rule.Ports.ValueString(),
@@ -488,8 +488,8 @@ func kgwFirewallModel(ctx *context.Context, d *KgwResourceModel) sdk.KGWFirewall
 	return fwModel
 }
 
-func kgwNatRulesModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWDNatRule {
-	natModel := []sdk.KGWDNatRule{}
+func kawaiiNatRulesModel(ctx *context.Context, d *KawaiiResourceModel) []sdk.KawaiiDNatRule {
+	natModel := []sdk.KawaiiDNatRule{}
 
 	rules := make([]types.Object, 0, len(d.NatRules.Elements()))
 	diags := d.NatRules.ElementsAs(*ctx, &rules, false)
@@ -500,7 +500,7 @@ func kgwNatRulesModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWDNatRu
 	}
 
 	for _, r := range rules {
-		rule := KgwNatRule{}
+		rule := KawaiiNatRule{}
 		diags := r.As(*ctx, &rule, basetypes.ObjectAsOptions{
 			UnhandledNullAsEmpty:    true,
 			UnhandledUnknownAsEmpty: true,
@@ -510,7 +510,7 @@ func kgwNatRulesModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWDNatRu
 				tflog.Error(*ctx, err.Detail())
 			}
 		}
-		natModel = append(natModel, sdk.KGWDNatRule{
+		natModel = append(natModel, sdk.KawaiiDNatRule{
 			Destination: rule.Destination.ValueString(),
 			Protocol:    rule.Protocol.ValueStringPointer(),
 			Ports:       rule.Ports.ValueString(),
@@ -520,8 +520,8 @@ func kgwNatRulesModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWDNatRu
 	return natModel
 }
 
-func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpcPeering {
-	vpModel := []sdk.KGWVpcPeering{}
+func kawaiiVpcPeeringsModel(ctx *context.Context, d *KawaiiResourceModel) []sdk.KawaiiVpcPeering {
+	vpModel := []sdk.KawaiiVpcPeering{}
 
 	peerings := make([]types.Object, 0, len(d.VpcPeerings.Elements()))
 	diags := d.VpcPeerings.ElementsAs(*ctx, &peerings, false)
@@ -532,7 +532,7 @@ func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpc
 	}
 
 	for _, p := range peerings {
-		vp := KgwVpcPeering{}
+		vp := KawaiiVpcPeering{}
 		diags := p.As(*ctx, &vp, basetypes.ObjectAsOptions{
 			UnhandledNullAsEmpty:    true,
 			UnhandledUnknownAsEmpty: true,
@@ -544,7 +544,7 @@ func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpc
 		}
 
 		// ingress rules
-		ingressModel := []sdk.KGWVpcForwardRule{}
+		ingressModel := []sdk.KawaiiVpcForwardRule{}
 		ingressRules := make([]types.Object, 0, len(vp.IngressRules.Elements()))
 		ingressDiags := vp.IngressRules.ElementsAs(*ctx, &ingressRules, false)
 		if ingressDiags.HasError() {
@@ -554,7 +554,7 @@ func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpc
 		}
 
 		for _, ir := range ingressRules {
-			rule := KgwForwardRule{}
+			rule := KawaiiForwardRule{}
 			diags := ir.As(*ctx, &rule, basetypes.ObjectAsOptions{
 				UnhandledNullAsEmpty:    true,
 				UnhandledUnknownAsEmpty: true,
@@ -565,14 +565,14 @@ func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpc
 				}
 			}
 
-			ingressModel = append(ingressModel, sdk.KGWVpcForwardRule{
+			ingressModel = append(ingressModel, sdk.KawaiiVpcForwardRule{
 				Protocol: rule.Protocol.ValueStringPointer(),
 				Ports:    rule.Ports.ValueString(),
 			})
 		}
 
 		// egress rules
-		egressModel := []sdk.KGWVpcForwardRule{}
+		egressModel := []sdk.KawaiiVpcForwardRule{}
 		egressRules := make([]types.Object, 0, len(vp.EgressRules.Elements()))
 		egressDiags := vp.EgressRules.ElementsAs(*ctx, &egressRules, false)
 		if egressDiags.HasError() {
@@ -582,7 +582,7 @@ func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpc
 		}
 
 		for _, er := range egressRules {
-			rule := KgwForwardRule{}
+			rule := KawaiiForwardRule{}
 			diags := er.As(*ctx, &rule, basetypes.ObjectAsOptions{
 				UnhandledNullAsEmpty:    true,
 				UnhandledUnknownAsEmpty: true,
@@ -593,13 +593,13 @@ func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpc
 				}
 			}
 
-			egressModel = append(egressModel, sdk.KGWVpcForwardRule{
+			egressModel = append(egressModel, sdk.KawaiiVpcForwardRule{
 				Protocol: rule.Protocol.ValueStringPointer(),
 				Ports:    rule.Ports.ValueString(),
 			})
 		}
 
-		vpModel = append(vpModel, sdk.KGWVpcPeering{
+		vpModel = append(vpModel, sdk.KawaiiVpcPeering{
 			Subnet:  vp.Subnet.ValueString(),
 			Policy:  vp.Policy.ValueStringPointer(),
 			Ingress: ingressModel,
@@ -610,20 +610,20 @@ func kgwVpcPeeringsModel(ctx *context.Context, d *KgwResourceModel) []sdk.KGWVpc
 	return vpModel
 }
 
-func kgwResourceToModel(ctx *context.Context, d *KgwResourceModel) sdk.KGW {
-	return sdk.KGW{
+func kawaiiResourceToModel(ctx *context.Context, d *KawaiiResourceModel) sdk.Kawaii {
+	return sdk.Kawaii{
 		Description: d.Desc.ValueStringPointer(),
-		Firewall:    kgwFirewallModel(ctx, d),
-		Dnat:        kgwNatRulesModel(ctx, d),
-		VpcPeerings: kgwVpcPeeringsModel(ctx, d),
+		Firewall:    kawaiiFirewallModel(ctx, d),
+		Dnat:        kawaiiNatRulesModel(ctx, d),
+		VpcPeerings: kawaiiVpcPeeringsModel(ctx, d),
 	}
 }
 
 //////////////////////////////////////////////////////////////
-// converts kgw from Kowabunga API model to Terraform model //
+// converts kawaii from Kowabunga API model to Terraform model //
 //////////////////////////////////////////////////////////////
 
-func kgwModelToNetworkConfig(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+func kawaiiModelToNetworkConfig(ctx *context.Context, r *sdk.Kawaii, d *KawaiiResourceModel) {
 	nc := map[string]attr.Value{}
 	ncType := map[string]attr.Type{
 		KeyPublicIPs: types.ListType{
@@ -683,7 +683,7 @@ func kgwModelToNetworkConfig(ctx *context.Context, r *sdk.KGW, d *KgwResourceMod
 	d.NetworkCfg, _ = types.ObjectValue(ncType, nc)
 }
 
-func kgwModelToFirewall(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+func kawaiiModelToFirewall(ctx *context.Context, r *sdk.Kawaii, d *KawaiiResourceModel) {
 	// ingress rules
 	ingressRules := []attr.Value{}
 	ingressRuleType := map[string]attr.Type{
@@ -692,11 +692,11 @@ func kgwModelToFirewall(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 		KeyPorts:    types.StringType,
 	}
 	for _, ir := range r.Firewall.Ingress {
-		source := KgwDefaultValueSource
+		source := KawaiiDefaultValueSource
 		if ir.Source != nil {
 			source = *ir.Source
 		}
-		protocol := KgwDefaultValueProtocol
+		protocol := KawaiiDefaultValueProtocol
 		if ir.Protocol != nil {
 			protocol = *ir.Protocol
 		}
@@ -720,7 +720,7 @@ func kgwModelToFirewall(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	if r.Firewall.EgressPolicy != nil {
 		d.EgressPolicy = types.StringPointerValue(r.Firewall.EgressPolicy)
 	} else {
-		d.EgressPolicy = types.StringValue(KgwDefaultValueEgressPolicy)
+		d.EgressPolicy = types.StringValue(KawaiiDefaultValueEgressPolicy)
 	}
 
 	// egress rules
@@ -731,11 +731,11 @@ func kgwModelToFirewall(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 		KeyPorts:       types.StringType,
 	}
 	for _, er := range r.Firewall.Egress {
-		destination := KgwDefaultValueDestination
+		destination := KawaiiDefaultValueDestination
 		if er.Destination != nil {
 			destination = *er.Destination
 		}
-		protocol := KgwDefaultValueProtocol
+		protocol := KawaiiDefaultValueProtocol
 		if er.Protocol != nil {
 			protocol = *er.Protocol
 		}
@@ -756,7 +756,7 @@ func kgwModelToFirewall(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	}
 }
 
-func kgwModelToNatRules(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+func kawaiiModelToNatRules(ctx *context.Context, r *sdk.Kawaii, d *KawaiiResourceModel) {
 	rules := []attr.Value{}
 	ruleType := map[string]attr.Type{
 		KeyDestination: types.StringType,
@@ -771,7 +771,7 @@ func kgwModelToNatRules(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	}
 
 	for _, rule := range r.Dnat {
-		protocol := KgwDefaultValueProtocol
+		protocol := KawaiiDefaultValueProtocol
 		if rule.Protocol != nil {
 			protocol = *rule.Protocol
 		}
@@ -786,7 +786,7 @@ func kgwModelToNatRules(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 	d.NatRules, _ = types.ListValue(types.ObjectType{AttrTypes: ruleType}, rules)
 }
 
-func kgwModelToVpcPeerings(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+func kawaiiModelToVpcPeerings(ctx *context.Context, r *sdk.Kawaii, d *KawaiiResourceModel) {
 	vpc := []attr.Value{}
 	vpcType := map[string]attr.Type{
 		KeySubnet: types.StringType,
@@ -834,7 +834,7 @@ func kgwModelToVpcPeerings(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel
 	}
 
 	for _, vp := range r.VpcPeerings {
-		policy := KgwDefaultValueForwardPolicy
+		policy := KawaiiDefaultValueForwardPolicy
 		if vp.Policy != nil {
 			policy = *vp.Policy
 		}
@@ -842,7 +842,7 @@ func kgwModelToVpcPeerings(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel
 		// ingress rules
 		ingressRules := []attr.Value{}
 		for _, ir := range vp.Ingress {
-			protocol := KgwDefaultValueProtocol
+			protocol := KawaiiDefaultValueProtocol
 			if ir.Protocol != nil {
 				protocol = *ir.Protocol
 			}
@@ -858,7 +858,7 @@ func kgwModelToVpcPeerings(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel
 		// egress rules
 		egressRules := []attr.Value{}
 		for _, er := range vp.Egress {
-			protocol := KgwDefaultValueProtocol
+			protocol := KawaiiDefaultValueProtocol
 			if er.Protocol != nil {
 				protocol = *er.Protocol
 			}
@@ -896,7 +896,7 @@ func kgwModelToVpcPeerings(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel
 	d.VpcPeerings, _ = types.ListValue(types.ObjectType{AttrTypes: vpcType}, vpc)
 }
 
-func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
+func kawaiiModelToResource(ctx *context.Context, r *sdk.Kawaii, d *KawaiiResourceModel) {
 	if r == nil {
 		return
 	}
@@ -906,14 +906,14 @@ func kgwModelToResource(ctx *context.Context, r *sdk.KGW, d *KgwResourceModel) {
 		d.Desc = types.StringValue("")
 	}
 
-	kgwModelToNetworkConfig(ctx, r, d)
-	kgwModelToFirewall(ctx, r, d)
-	kgwModelToNatRules(ctx, r, d)
-	kgwModelToVpcPeerings(ctx, r, d)
+	kawaiiModelToNetworkConfig(ctx, r, d)
+	kawaiiModelToFirewall(ctx, r, d)
+	kawaiiModelToNatRules(ctx, r, d)
+	kawaiiModelToVpcPeerings(ctx, r, d)
 }
 
-func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *KgwResourceModel
+func (r *KawaiiResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *KawaiiResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
@@ -943,22 +943,22 @@ func (r *KgwResource) Create(ctx context.Context, req resource.CreateRequest, re
 		errorCreateGeneric(resp, err)
 		return
 	}
-	m := kgwResourceToModel(&ctx, data)
+	m := kawaiiResourceToModel(&ctx, data)
 
-	// create a new KGW
-	kgw, _, err := r.Data.K.ProjectAPI.CreateProjectRegionKGW(ctx, projectId, regionId).KGW(m).Execute()
+	// create a new Kawaii
+	kawaii, _, err := r.Data.K.ProjectAPI.CreateProjectRegionKawaii(ctx, projectId, regionId).Kawaii(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringPointerValue(kgw.Id)
-	kgwModelToResource(&ctx, kgw, data) // read back resulting object
-	tflog.Trace(ctx, "created KGW resource")
+	data.ID = types.StringPointerValue(kawaii.Id)
+	kawaiiModelToResource(&ctx, kawaii, data) // read back resulting object
+	tflog.Trace(ctx, "created Kawaii resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *KgwResourceModel
+func (r *KawaiiResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *KawaiiResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -975,18 +975,18 @@ func (r *KgwResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	kgw, _, err := r.Data.K.KgwAPI.ReadKGW(ctx, data.ID.ValueString()).Execute()
+	kawaii, _, err := r.Data.K.KawaiiAPI.ReadKawaii(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	kgwModelToResource(&ctx, kgw, data)
+	kawaiiModelToResource(&ctx, kawaii, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *KgwResourceModel
+func (r *KawaiiResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *KawaiiResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -1003,8 +1003,8 @@ func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := kgwResourceToModel(&ctx, data)
-	_, _, err := r.Data.K.KgwAPI.UpdateKGW(ctx, data.ID.ValueString()).KGW(m).Execute()
+	m := kawaiiResourceToModel(&ctx, data)
+	_, _, err := r.Data.K.KawaiiAPI.UpdateKawaii(ctx, data.ID.ValueString()).Kawaii(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -1013,8 +1013,8 @@ func (r *KgwResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KgwResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *KgwResourceModel
+func (r *KawaiiResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *KawaiiResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -1031,7 +1031,7 @@ func (r *KgwResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	_, err := r.Data.K.KgwAPI.DeleteKGW(ctx, data.ID.ValueString()).Execute()
+	_, err := r.Data.K.KawaiiAPI.DeleteKawaii(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return

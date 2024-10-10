@@ -113,7 +113,7 @@ const (
 	KeyNotifications    = "notifications"
 	KeyBot              = "bot"
 	KeyUsers            = "users"
-	KeyGroups           = "groups"
+	KeyTeams            = "teams"
 	KeyVRIDs            = "vrids"
 	KeyFailover         = "failover"
 	KeyEndpoints        = "endpoints"
@@ -144,7 +144,7 @@ const (
 	ErrorUnknownPool          = "Unknown storage pool"
 	ErrorUnknownNfs           = "Unknown NFS storage"
 	ErrorUnknownTemplate      = "Unknown volume template"
-	ErrorUnknownHost          = "Unknown host"
+	ErrorUnknownKaktus        = "Unknown kaktus node"
 )
 
 const (

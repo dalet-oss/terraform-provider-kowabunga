@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"sync"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -123,27 +123,27 @@ func (p *KowabungaProvider) Configure(ctx context.Context, req provider.Configur
 
 func (p *KowabungaProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewAgentResource,
-		NewUserResource,
-		NewGroupResource,
-		NewRegionResource,
-		NewZoneResource,
-		NewNetGWResource,
-		NewHostResource,
-		NewStoragePoolResource,
-		NewStorageNfsResource,
-		NewTemplateResource,
-		NewVolumeResource,
-		NewVNetResource,
-		NewSubnetResource,
 		NewAdapterResource,
-		NewProjectResource,
-		NewInstanceResource,
-		NewKceResource,
+		NewAgentResource,
 		NewDnsRecordResource,
-		NewKfsResource,
-		NewKgwResource,
+		NewInstanceResource,
+		NewKaktusResource,
+		NewKawaiiResource,
+		NewKiwiResource,
+		NewKomputeResource,
 		NewKonveyResource,
+		NewKyloResource,
+		NewProjectResource,
+		NewRegionResource,
+		NewStorageNfsResource,
+		NewStoragePoolResource,
+		NewSubnetResource,
+		NewTeamResource,
+		NewTemplateResource,
+		NewUserResource,
+		NewVNetResource,
+		NewVolumeResource,
+		NewZoneResource,
 	}
 }
 
@@ -151,11 +151,11 @@ func (p *KowabungaProvider) DataSources(ctx context.Context) []func() datasource
 	return []func() datasource.DataSource{
 		NewRegionDataSource,
 		NewRegionsDataSource,
-		NewZoneDataSource,
-		NewZonesDataSource,
 		NewSubnetDataSource,
 		NewSubnetsDataSource,
-		NewGroupDataSource,
-		NewGroupsDataSource,
+		NewTeamDataSource,
+		NewTeamsDataSource,
+		NewZoneDataSource,
+		NewZonesDataSource,
 	}
 }

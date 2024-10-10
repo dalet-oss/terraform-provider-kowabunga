@@ -5,7 +5,7 @@ import (
 	"maps"
 	"sort"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -63,7 +63,7 @@ type ProjectResourceModel struct {
 	MaxStorage     types.Int64    `tfsdk:"max_storage"`
 	MaxVCPUs       types.Int64    `tfsdk:"max_vcpus"`
 	PrivateSubnets types.Map      `tfsdk:"private_subnets"`
-	Groups         types.List     `tfsdk:"groups"`
+	Teams          types.List     `tfsdk:"teams"`
 	Regions        types.List     `tfsdk:"regions"`
 	VRIDs          types.List     `tfsdk:"vrids"`
 }
@@ -164,8 +164,8 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 					mapplanmodifier.UseStateForUnknown(),
 				},
 			},
-			KeyGroups: schema.ListAttribute{
-				MarkdownDescription: "The list of user groups allowed to administrate the project (i.e. capable of managing internal resources)",
+			KeyTeams: schema.ListAttribute{
+				MarkdownDescription: "The list of user teams allowed to administrate the project (i.e. capable of managing internal resources)",
 				ElementType:         types.StringType,
 				Required:            true,
 			},
@@ -214,9 +214,9 @@ func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 		Vcpus:     &vcpus,
 	}
 
-	groups := []string{}
-	d.Groups.ElementsAs(context.TODO(), &groups, false)
-	sort.Strings(groups)
+	teams := []string{}
+	d.Teams.ElementsAs(context.TODO(), &teams, false)
+	sort.Strings(teams)
 
 	regions := []string{}
 	d.Regions.ElementsAs(context.TODO(), &regions, false)
@@ -232,7 +232,7 @@ func projectResourceToModel(d *ProjectResourceModel) sdk.Project {
 		Tags:            tags,
 		Metadatas:       metadatas,
 		Quotas:          quotas,
-		Groups:          groups,
+		Teams:           teams,
 		Regions:         regions,
 	}
 }
@@ -313,12 +313,12 @@ func projectModelToResource(r *sdk.Project, d *ProjectResourceModel) {
 	}
 	d.PrivateSubnets = basetypes.NewMapValueMust(types.StringType, privateSubnets)
 
-	groups := []attr.Value{}
-	sort.Strings(r.Groups)
-	for _, g := range r.Groups {
-		groups = append(groups, types.StringValue(g))
+	teams := []attr.Value{}
+	sort.Strings(r.Teams)
+	for _, g := range r.Teams {
+		teams = append(teams, types.StringValue(g))
 	}
-	d.Groups, _ = types.ListValue(types.StringType, groups)
+	d.Teams, _ = types.ListValue(types.StringType, teams)
 
 	regions := []attr.Value{}
 	sort.Strings(r.Regions)

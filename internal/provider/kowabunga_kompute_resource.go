@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -20,26 +20,26 @@ import (
 )
 
 const (
-	KceResourceName = "kce"
+	KomputeResourceName = "kompute"
 
-	KceDefaultValuePool      = ""
-	KceDefaultValueTemplate  = ""
-	KceDefaultValueExtraDisk = 0
-	KceDefaultValuePublic    = false
+	KomputeDefaultValuePool      = ""
+	KomputeDefaultValueTemplate  = ""
+	KomputeDefaultValueExtraDisk = 0
+	KomputeDefaultValuePublic    = false
 )
 
-var _ resource.Resource = &KceResource{}
-var _ resource.ResourceWithImportState = &KceResource{}
+var _ resource.Resource = &KomputeResource{}
+var _ resource.ResourceWithImportState = &KomputeResource{}
 
-func NewKceResource() resource.Resource {
-	return &KceResource{}
+func NewKomputeResource() resource.Resource {
+	return &KomputeResource{}
 }
 
-type KceResource struct {
+type KomputeResource struct {
 	Data *KowabungaProviderData
 }
 
-type KceResourceModel struct {
+type KomputeResourceModel struct {
 	ID        types.String   `tfsdk:"id"`
 	Timeouts  timeouts.Value `tfsdk:"timeouts"`
 	Name      types.String   `tfsdk:"name"`
@@ -56,22 +56,22 @@ type KceResourceModel struct {
 	IP        types.String   `tfsdk:"ip"`
 }
 
-func (r *KceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, KceResourceName)
+func (r *KomputeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, KomputeResourceName)
 }
 
-func (r *KceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *KomputeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 	resource.ImportStatePassthroughID(ctx, path.Root(KeyIP), req, resp)
 }
 
-func (r *KceResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *KomputeResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *KomputeResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a virtual machine KCE resource. **KCE** (stands for *Kowabunga Compute Engine*) is an seamless automated way to create virtual machine resources. It abstract the complexity of manually creating instance, volumes and network adapters resources and binding them together. It is the **RECOMMENDED** way to create and manipulate virtual machine services, unless a specific hwardware configuration is required. KCE provides 2 network adapters, a public (WAN) and a private (LAN/VPC) one, as well as up to two disks (first one for OS, optional second one for extra data).",
+		MarkdownDescription: "Manages a Kompute virtual machine resource. **Kompute** is an seamless automated way to create virtual machine resources. It abstract the complexity of manually creating instance, volumes and network adapters resources and binding them together. It is the **RECOMMENDED** way to create and manipulate virtual machine services, unless a specific hwardware configuration is required. Kompute provides 2 network adapters, a public (WAN) and a private (LAN/VPC) one, as well as up to two disks (first one for OS, optional second one for extra data).",
 		Attributes: map[string]schema.Attribute{
 			KeyProject: schema.StringAttribute{
 				MarkdownDescription: "Associated project name or ID",
@@ -85,37 +85,37 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "Associated storage pool name or ID (zone's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(KceDefaultValuePool),
+				Default:             stringdefault.StaticString(KomputeDefaultValuePool),
 			},
 			KeyTemplate: schema.StringAttribute{
 				MarkdownDescription: "Associated template name or ID (zone's default storage pool's default if unspecified)",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(KceDefaultValueTemplate),
+				Default:             stringdefault.StaticString(KomputeDefaultValueTemplate),
 			},
 			KeyVCPUs: schema.Int64Attribute{
-				MarkdownDescription: "The KCE number of vCPUs",
+				MarkdownDescription: "The Kompute instance number of vCPUs",
 				Required:            true,
 			},
 			KeyMemory: schema.Int64Attribute{
-				MarkdownDescription: "The KCE memory size (expressed in GB)",
+				MarkdownDescription: "The Kompute instance memory size (expressed in GB)",
 				Required:            true,
 			},
 			KeyDisk: schema.Int64Attribute{
-				MarkdownDescription: "The KCE OS disk size (expressed in GB)",
+				MarkdownDescription: "The Kompute instance OS disk size (expressed in GB)",
 				Required:            true,
 			},
 			KeyExtraDisk: schema.Int64Attribute{
-				MarkdownDescription: "The KCE optional data disk size (expressed in GB, disabled by default, 0 to disable)",
+				MarkdownDescription: "The Kompute optional data disk size (expressed in GB, disabled by default, 0 to disable)",
 				Optional:            true,
 				Computed:            true,
-				Default:             int64default.StaticInt64(KceDefaultValueExtraDisk),
+				Default:             int64default.StaticInt64(KomputeDefaultValueExtraDisk),
 			},
 			KeyPublic: schema.BoolAttribute{
-				MarkdownDescription: "Should KCE be exposed over public Internet ? (default: **false**)",
+				MarkdownDescription: "Should Kompute instance be exposed over public Internet ? (default: **false**)",
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(KceDefaultValuePublic),
+				Default:             booldefault.StaticBool(KomputeDefaultValuePublic),
 			},
 			KeyIP: schema.StringAttribute{
 				MarkdownDescription: "IP (read-only)",
@@ -129,13 +129,13 @@ func (r *KceResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
-// converts kce from Terraform model to Kowabunga API model
-func kceResourceToModel(d *KceResourceModel) sdk.KCE {
+// converts kompute from Terraform model to Kowabunga API model
+func komputeResourceToModel(d *KomputeResourceModel) sdk.Kompute {
 	memSize := d.Memory.ValueInt64() * HelperGbToBytes
 	diskSize := d.Disk.ValueInt64() * HelperGbToBytes
 	extraDiskSize := d.ExtraDisk.ValueInt64() * HelperGbToBytes
 
-	return sdk.KCE{
+	return sdk.Kompute{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
 		Vcpus:       d.VCPUs.ValueInt64(),
@@ -146,8 +146,8 @@ func kceResourceToModel(d *KceResourceModel) sdk.KCE {
 	}
 }
 
-// converts kce from Kowabunga API model to Terraform model
-func kceModelToResource(r *sdk.KCE, d *KceResourceModel) {
+// converts kompute from Kowabunga API model to Terraform model
+func komputeModelToResource(r *sdk.Kompute, d *KomputeResourceModel) {
 	if r == nil {
 		return
 	}
@@ -176,8 +176,8 @@ func kceModelToResource(r *sdk.KCE, d *KceResourceModel) {
 	}
 }
 
-func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *KceResourceModel
+func (r *KomputeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *KomputeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -212,28 +212,28 @@ func (r *KceResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// find parent template (optional)
 	templateId, _ := getTemplateID(ctx, r.Data, data.Template.ValueString())
 
-	// create a new KCE
-	m := kceResourceToModel(data)
-	api := r.Data.K.ProjectAPI.CreateProjectZoneKCE(ctx, projectId, zoneId).KCE(m).Public(data.Public.ValueBool())
+	// create a new Kompute
+	m := komputeResourceToModel(data)
+	api := r.Data.K.ProjectAPI.CreateProjectZoneKompute(ctx, projectId, zoneId).Kompute(m).Public(data.Public.ValueBool())
 	if poolId != "" {
 		api = api.PoolId(poolId)
 	}
 	if templateId != "" {
 		api = api.TemplateId(templateId)
 	}
-	kce, _, err := api.Execute()
+	kompute, _, err := api.Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringPointerValue(kce.Id)
-	kceModelToResource(kce, data) // read back resulting object
-	tflog.Trace(ctx, "created KCE resource")
+	data.ID = types.StringPointerValue(kompute.Id)
+	komputeModelToResource(kompute, data) // read back resulting object
+	tflog.Trace(ctx, "created Kompute resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *KceResourceModel
+func (r *KomputeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *KomputeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -249,18 +249,18 @@ func (r *KceResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	kce, _, err := r.Data.K.KceAPI.ReadKCE(ctx, data.ID.ValueString()).Execute()
+	kompute, _, err := r.Data.K.KomputeAPI.ReadKompute(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	kceModelToResource(kce, data)
+	komputeModelToResource(kompute, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *KceResourceModel
+func (r *KomputeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *KomputeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -276,8 +276,8 @@ func (r *KceResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := kceResourceToModel(data)
-	_, _, err := r.Data.K.KceAPI.UpdateKCE(ctx, data.ID.ValueString()).KCE(m).Execute()
+	m := komputeResourceToModel(data)
+	_, _, err := r.Data.K.KomputeAPI.UpdateKompute(ctx, data.ID.ValueString()).Kompute(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -286,8 +286,8 @@ func (r *KceResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *KceResourceModel
+func (r *KomputeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *KomputeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -303,7 +303,7 @@ func (r *KceResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	_, err := r.Data.K.KceAPI.DeleteKCE(ctx, data.ID.ValueString()).Execute()
+	_, err := r.Data.K.KomputeAPI.DeleteKompute(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return

@@ -5,7 +5,7 @@ import (
 	"maps"
 	"sort"
 
-	sdk "github.com/dalet-oss/kowabunga-api/sdk/go/client"
+	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -16,21 +16,21 @@ import (
 )
 
 const (
-	GroupResourceName = "group"
+	TeamResourceName = "team"
 )
 
-var _ resource.Resource = &GroupResource{}
-var _ resource.ResourceWithImportState = &GroupResource{}
+var _ resource.Resource = &TeamResource{}
+var _ resource.ResourceWithImportState = &TeamResource{}
 
-func NewGroupResource() resource.Resource {
-	return &GroupResource{}
+func NewTeamResource() resource.Resource {
+	return &TeamResource{}
 }
 
-type GroupResource struct {
+type TeamResource struct {
 	Data *KowabungaProviderData
 }
 
-type GroupResourceModel struct {
+type TeamResourceModel struct {
 	ID       types.String   `tfsdk:"id"`
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Name     types.String   `tfsdk:"name"`
@@ -38,21 +38,21 @@ type GroupResourceModel struct {
 	Users    types.List     `tfsdk:"users"`
 }
 
-func (r *GroupResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, GroupResourceName)
+func (r *TeamResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, TeamResourceName)
 }
 
-func (r *GroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *TeamResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 }
 
-func (r *GroupResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *TeamResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *GroupResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *TeamResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a Kowabunga group resource",
+		MarkdownDescription: "Manages a Kowabunga team resource",
 		Attributes: map[string]schema.Attribute{
 			KeyUsers: schema.ListAttribute{
 				MarkdownDescription: "The list of users to be associated with the instance",
@@ -64,20 +64,20 @@ func (r *GroupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 	maps.Copy(resp.Schema.Attributes, resourceAttributes(&ctx))
 }
 
-// converts group from Terraform model to Kowabunga API model
-func groupResourceToModel(d *GroupResourceModel) sdk.Group {
+// converts team from Terraform model to Kowabunga API model
+func teamResourceToModel(d *TeamResourceModel) sdk.Team {
 	users := []string{}
 	d.Users.ElementsAs(context.TODO(), &users, false)
 	sort.Strings(users)
-	return sdk.Group{
+	return sdk.Team{
 		Name:        d.Name.ValueString(),
 		Description: d.Desc.ValueStringPointer(),
 		Users:       users,
 	}
 }
 
-// converts group from Kowabunga API model to Terraform model
-func groupModelToResource(r *sdk.Group, d *GroupResourceModel) {
+// converts team from Kowabunga API model to Terraform model
+func teamModelToResource(r *sdk.Team, d *TeamResourceModel) {
 	if r == nil {
 		return
 	}
@@ -96,8 +96,8 @@ func groupModelToResource(r *sdk.Group, d *GroupResourceModel) {
 	d.Users, _ = types.ListValue(types.StringType, users)
 }
 
-func (r *GroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *GroupResourceModel
+func (r *TeamResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *TeamResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -114,21 +114,21 @@ func (r *GroupResource) Create(ctx context.Context, req resource.CreateRequest, 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := groupResourceToModel(data)
-	group, _, err := r.Data.K.GroupAPI.CreateGroup(ctx).Group(m).Execute()
+	m := teamResourceToModel(data)
+	team, _, err := r.Data.K.TeamAPI.CreateTeam(ctx).Team(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
-	data.ID = types.StringPointerValue(group.Id)
-	groupModelToResource(group, data) // read back resulting object
+	data.ID = types.StringPointerValue(team.Id)
+	teamModelToResource(team, data) // read back resulting object
 
-	tflog.Trace(ctx, "created group resource")
+	tflog.Trace(ctx, "created team resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *GroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *GroupResourceModel
+func (r *TeamResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *TeamResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -144,18 +144,18 @@ func (r *GroupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	group, _, err := r.Data.K.GroupAPI.ReadGroup(ctx, data.ID.ValueString()).Execute()
+	team, _, err := r.Data.K.TeamAPI.ReadTeam(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorReadGeneric(resp, err)
 		return
 	}
 
-	groupModelToResource(group, data)
+	teamModelToResource(team, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *GroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *GroupResourceModel
+func (r *TeamResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *TeamResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -171,8 +171,8 @@ func (r *GroupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := groupResourceToModel(data)
-	_, _, err := r.Data.K.GroupAPI.UpdateGroup(ctx, data.ID.ValueString()).Group(m).Execute()
+	m := teamResourceToModel(data)
+	_, _, err := r.Data.K.TeamAPI.UpdateTeam(ctx, data.ID.ValueString()).Team(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
 		return
@@ -181,8 +181,8 @@ func (r *GroupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *GroupResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *GroupResourceModel
+func (r *TeamResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *TeamResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -199,7 +199,7 @@ func (r *GroupResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	_, err := r.Data.K.GroupAPI.DeleteGroup(ctx, data.ID.ValueString()).Execute()
+	_, err := r.Data.K.TeamAPI.DeleteTeam(ctx, data.ID.ValueString()).Execute()
 	if err != nil {
 		errorDeleteGeneric(resp, err)
 		return

@@ -15,9 +15,8 @@ const (
 )
 
 var agentSupportedTypes = []string{
-	"KCA",
-	"KSA",
-	"KNA",
+	"Kaktus",
+	"Kiwi",
 }
 
 type stringAgentTypeValidator struct{}
