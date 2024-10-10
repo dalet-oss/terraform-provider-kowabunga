@@ -18,7 +18,7 @@ Manages a Kowabunga remote agent resource
 ### Required
 
 - `name` (String) Resource name
-- `type` (String) Kowabunga remote agent type (KCA, KSA, KNA)
+- `type` (String) Kowabunga remote agent type (Kaktus, Kiwi)
 
 ### Optional
 

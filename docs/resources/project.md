@@ -17,11 +17,11 @@ Manages a project resource
 
 ### Required
 
-- `groups` (List of String) The list of user groups allowed to administrate the project (i.e. capable of managing internal resources)
 - `metadata` (Map of String) List of metadatas key/value associated with the project
 - `name` (String) Resource name
 - `regions` (List of String) The list of regions the project is managing resources from (subnets will be pre-allocated in all referenced regions)
 - `tags` (List of String) List of tags associated with the project
+- `teams` (List of String) The list of user teams allowed to administrate the project (i.e. capable of managing internal resources)
 
 ### Optional
 
