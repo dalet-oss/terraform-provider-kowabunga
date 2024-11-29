@@ -50,12 +50,13 @@ type KawaiiResourceModel struct {
 	Project  types.String   `tfsdk:"project"`
 	Region   types.String   `tfsdk:"region"`
 
-	NetworkCfg   types.Object `tfsdk:"netcfg"`        // read-only
-	IngressRules types.List   `tfsdk:"ingress_rules"` // KawaiiIngressRule
-	EgressPolicy types.String `tfsdk:"egress_policy"`
-	EgressRules  types.List   `tfsdk:"egress_rules"` // KawaiiEgressRule
-	NatRules     types.List   `tfsdk:"nat_rules"`    // KawaiiNatRule
-	VpcPeerings  types.List   `tfsdk:"vpc_peerings"` // KawaiiVpcPeering
+	NetworkCfg       types.Object `tfsdk:"netcfg"`        // read-only
+	IngressRules     types.List   `tfsdk:"ingress_rules"` // KawaiiIngressRule
+	EgressPolicy     types.String `tfsdk:"egress_policy"`
+	EgressRules      types.List   `tfsdk:"egress_rules"`      // KawaiiEgressRule
+	NatRules         types.List   `tfsdk:"nat_rules"`         // KawaiiNatRule
+	VpcPeerings      types.List   `tfsdk:"vpc_peerings"`      // KawaiiVpcPeering
+	IPSecConnections types.List   `tfsdk:"ipsec_connections"` //KawaiiIPSecConnections
 }
 
 type KawaiiNetworkConfig struct {
@@ -104,6 +105,13 @@ type KawaiiVpcPeering struct {
 type KawaiiVpcPeeringNetworkZoneConfig struct {
 	Zone      types.String `tfsdk:"zone"`
 	PrivateIp types.String `tfsdk:"private_ip"`
+}
+
+type KawaiiIPSecConnection struct {
+	Name         types.String `tfsdk:"name"`
+	RemotePeer   types.String `tfsdk:"remote_peer"`
+	RemoteSubnet types.String `tfsdk:"remote_subnet"`
+	IngressRules types.List   `tfsdk:"ingress_rules"` // KawaiiForwardRule
 }
 
 func (r *KawaiiResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -389,6 +397,51 @@ func (r *KawaiiResource) SchemaVpcPeerings() schema.ListNestedAttribute {
 	}
 }
 
+func (r *KawaiiResource) SchemaIPSecConnections() schema.ListNestedAttribute {
+	return schema.ListNestedAttribute{
+		MarkdownDescription: "Kawaii list of Kowabunga IPSec Connections",
+		Optional:            true,
+		NestedObject: schema.NestedAttributeObject{
+			Attributes: map[string]schema.Attribute{
+				KeyName: schema.StringAttribute{
+					MarkdownDescription: "Kowabunga IPSec Connecton Name",
+					Required:            true,
+				},
+				KeyRemotePeer: schema.StringAttribute{
+					MarkdownDescription: "Remote VPN Gateway",
+					Required:            true,
+					Validators: []validator.String{
+						&stringNetworkAddressValidator{},
+					},
+				},
+				KeyPreSharedKey: schema.StringAttribute{
+					MarkdownDescription: "The Pre-Shared Key (PSK) to authenticate the VPN tunnel to your peer VPN gateway",
+					Required:            true,
+				},
+				KeyRemoteSubnet: schema.StringAttribute{
+					MarkdownDescription: "Remote Subnet",
+					Required:            true,
+					Validators: []validator.String{
+						&stringNetworkAddressValidator{},
+					},
+				},
+				KeyIngressRules: schema.ListNestedAttribute{
+					MarkdownDescription: "The firewall list of Ingress Rules. Default will accept all. Egress is allow all",
+					Optional:            true,
+					Computed:            true,
+					NestedObject:        r.SchemaForwardRule(),
+					PlanModifiers: []planmodifier.List{
+						listplanmodifier.UseStateForUnknown(),
+					},
+				},
+			},
+		},
+		PlanModifiers: []planmodifier.List{
+			listplanmodifier.UseStateForUnknown(),
+		},
+	}
+}
+
 func (r *KawaiiResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a Kawaii resource. **Kawaii** is a resource that provides NATs & Internet access capabilities for a given project.",
@@ -412,9 +465,10 @@ func (r *KawaiiResource) Schema(ctx context.Context, req resource.SchemaRequest,
 					&stringFirewallPolicyValidator{},
 				},
 			},
-			KeyEgressRules: r.SchemaEgressRules(),
-			KeyNatRules:    r.SchemaNatRules(),
-			KeyVpcPeerings: r.SchemaVpcPeerings(),
+			KeyEgressRules:      r.SchemaEgressRules(),
+			KeyNatRules:         r.SchemaNatRules(),
+			KeyVpcPeerings:      r.SchemaVpcPeerings(),
+			KeyIPSecConnections: r.SchemaIPSecConnections(),
 		},
 	}
 	maps.Copy(resp.Schema.Attributes, resourceAttributesWithoutName(&ctx))

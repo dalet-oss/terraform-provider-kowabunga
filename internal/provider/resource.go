@@ -119,6 +119,10 @@ const (
 	KeyEndpoints        = "endpoints"
 	KeyBackendPort      = "backend_port"
 	KeyBackendIPs       = "backend_ips"
+	KeyIPSecConnections = "ipsec_connections"
+	KeyRemotePeer       = "remote_peer"
+	KeyRemoteSubnet     = "remote_subnet"
+	KeyPreSharedKey     = "pre_shared_key"
 )
 
 const (
