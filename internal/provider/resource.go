@@ -123,6 +123,7 @@ const (
 	KeyRemotePeer       = "remote_peer"
 	KeyRemoteSubnet     = "remote_subnet"
 	KeyPreSharedKey     = "pre_shared_key"
+	KeyKawaiiID         = "kawaii_id"
 )
 
 const (
@@ -416,4 +417,12 @@ func getTemplateID(ctx context.Context, data *KowabungaProviderData, id string) 
 	}
 
 	return "", fmt.Errorf("%s", ErrorUnknownTemplate)
+}
+
+func getKawaiiID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
+	kawaii, _, err := data.K.KawaiiAPI.ReadKawaii(ctx, id).Execute()
+	if err == nil {
+		return *kawaii.Id, nil
+	}
+	return "", fmt.Errorf("%s", ErrorUnknownNfs)
 }
