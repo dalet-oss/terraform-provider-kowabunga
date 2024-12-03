@@ -25,9 +25,14 @@ const (
 
 	KawaiiIPSecDefaultValueProtocol      = "tcp"
 	KawaiiIPSecDefaultValueIngressPolicy = "accept"
-	// KawaiiDefaultValueEgressPolicy  = "accept"
-	// KawaiiDefaultValueForwardPolicy = "drop"
 )
+
+var _ resource.Resource = &KawaiiResource{}
+var _ resource.ResourceWithImportState = &KawaiiIPSecConnectionResource{}
+
+func NewKawaiiIPSecResource() resource.Resource {
+	return &KawaiiIPSecConnectionResource{}
+}
 
 type KawaiiIPSecConnectionResource struct {
 	Data *KowabungaProviderData
@@ -61,6 +66,15 @@ func (r *KawaiiIPSecConnectionResource) Configure(ctx context.Context, req resou
 func (r *KawaiiIPSecConnectionResource) SchemaIngressRule() schema.NestedAttributeObject {
 	return schema.NestedAttributeObject{
 		Attributes: map[string]schema.Attribute{
+			KeySource: schema.StringAttribute{
+				MarkdownDescription: "The source IP or CIDR to accept public traffic from (defaults to 0.0.0.0/0).",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(KawaiiDefaultValueSource),
+				Validators: []validator.String{
+					&stringNetworkAddressValidator{},
+				},
+			},
 			KeyProtocol: schema.StringAttribute{
 				MarkdownDescription: "The transport layer protocol to forward public traffic to (defaults to 'tcp')",
 				Optional:            true,
