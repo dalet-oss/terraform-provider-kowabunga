@@ -43,12 +43,24 @@ type KawaiiIPSecConnectionResourceModel struct {
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Desc     types.String   `tfsdk:"desc"`
 
-	KawaiiID     types.String `tfsdk:"kawaii_id"`
-	Name         types.String `tfsdk:"name"`
-	PreSharedKey types.String `tfsdk:"pre_shared_key"`
-	RemotePeer   types.String `tfsdk:"remote_peer"`
-	RemoteSubnet types.String `tfsdk:"remote_subnet"`
-	IngressRules types.List   `tfsdk:"ingress_rules"` // KawaiiForwardRule
+	KawaiiID                  types.String `tfsdk:"kawaii_id"`
+	Name                      types.String `tfsdk:"name"`
+	PreSharedKey              types.String `tfsdk:"pre_shared_key"`
+	RemotePeer                types.String `tfsdk:"remote_peer"`
+	RemoteSubnet              types.String `tfsdk:"remote_subnet"`
+	DpdTimeout                types.Int64  `tfsdk:"dpd_timeout"`
+	DpdTimeoutAction          types.String `tfsdk:"dpd_action"`
+	StartAction               types.String `tfsdk:"start_action"`
+	Rekey                     types.String `tfsdk:"rekey"`
+	Phase1Lifetime            types.String `tfsdk:"phase1_lifetime"`
+	Phase1DHGroupNumber       types.Int64  `tfsdk:"phase1_dh_group_number"`
+	Phase1IntegrityAlgorithm  types.String `tfsdk:"phase1_integrity_algorithm"`
+	Phase1EncryptionAlgorithm types.String `tfsdk:"phase1_encryption_algorithm"`
+	Phase2Lifetime            types.String `tfsdk:"phase2_lifetime"`
+	Phase2DHGroupNumber       types.Int64  `tfsdk:"phase2_dh_group_number"`
+	Phase2IntegrityAlgorithm  types.String `tfsdk:"phase2_integrity_algorithm"`
+	Phase2EncryptionAlgorithm types.String `tfsdk:"phase2_encryption_algorithm"`
+	IngressRules              types.List   `tfsdk:"ingress_rules"` // KawaiiForwardRule
 }
 
 func (r *KawaiiIPSecConnectionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -126,6 +138,93 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 				Required:            true,
 				Validators: []validator.String{
 					&stringNetworkAddressValidator{},
+				},
+			},
+			KeyIPSecDpdTimeout: schema.Int64Attribute{
+				MarkdownDescription: "Dead Peer Detection Timeout in seconds. Default is 240",
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+			},
+			KeyIPSecDpdAction: schema.StringAttribute{
+				MarkdownDescription: "Dead Peer Detection Timeout Action. Default is `restart`",
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+			},
+			KeyIPSecStartAction: schema.StringAttribute{
+				MarkdownDescription: "IPSEC Default Start Action. Default is `start`",
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+			},
+			KeyIPSecRekeyTime: schema.StringAttribute{
+				MarkdownDescription: "IPSec Rekey time in seconds. Default is `2h`",
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+				Validators: []validator.String{
+					&stringDurationValidator{},
+				},
+			},
+			KeyIPSecP1Lifetime: schema.StringAttribute{
+				MarkdownDescription: "IPSec Phase 1 Lifetime. Use s, m, h and d suffixes. Default is `1h`",
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+				Validators: []validator.String{
+					&stringDurationValidator{},
+				},
+			},
+			KeyIPSecP1DHGroupNumber: schema.Int64Attribute{
+				MarkdownDescription: "IPSec phase 1 Diffie Hellman IANA Group Number. Allowed Values are [2, 5, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]",
+				Required:            true,
+				Validators: []validator.Int64{
+					&diffieHellmanAlgorithmTypeValidator{},
+				},
+			},
+			KeyIPSecP1IntegrityAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPSec phase 1 Integrity Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+				Required:            true,
+				Validators: []validator.String{
+					&integrityAlgorithmTypeValidator{},
+				},
+			},
+			KeyIPSecP1EncryptionAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPSec phase 1 Encryption Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+				Required:            true,
+				Validators: []validator.String{
+					&encryptionAlgorithmTypeValidator{},
+				},
+			},
+			KeyIPSecP2Lifetime: schema.StringAttribute{
+				MarkdownDescription: "IPSec Phase 2 Lifetime. Use s, m, h and d suffixes. Default is `1h`",
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+				Validators: []validator.String{
+					&stringDurationValidator{},
+				},
+			},
+			KeyIPSecP2DHGroupNumber: schema.Int64Attribute{
+				MarkdownDescription: "Remote Subnet",
+				Required:            true,
+				Validators: []validator.Int64{
+					&diffieHellmanAlgorithmTypeValidator{},
+				},
+			},
+			KeyIPSecP2IntegrityAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPSec phase 1 Integrity Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+				Required:            true,
+				Validators: []validator.String{
+					&integrityAlgorithmTypeValidator{},
+				},
+			},
+			KeyIPSecP2EncryptionAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPSec phase 1 Encryption Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+				Required:            true,
+				Validators: []validator.String{
+					&encryptionAlgorithmTypeValidator{},
 				},
 			},
 			KeyIngressRules: schema.ListNestedAttribute{
@@ -242,6 +341,18 @@ func kawaiiIPSecModelToResource(ctx *context.Context, r *sdk.KawaiiIpSec, d *Kaw
 	} else {
 		d.Desc = types.StringValue("")
 	}
+	d.DpdTimeoutAction = types.StringPointerValue(r.DpdTimeoutAction)
+	d.DpdTimeout = types.Int64PointerValue(r.DpdTimeoutSeconds)
+	d.StartAction = types.StringPointerValue(r.StartAction)
+	d.Rekey = types.StringPointerValue(r.RekeyTime)
+	d.Phase1Lifetime = types.StringPointerValue(r.Phase1Lifetime)
+	d.Phase1DHGroupNumber = types.Int64PointerValue(r.Phase1DhGroupNumber)
+	d.Phase1IntegrityAlgorithm = types.StringPointerValue(r.Phase1IntegrityAlgorithm)
+	d.Phase1EncryptionAlgorithm = types.StringPointerValue(r.Phase1EncryptionAlgorithm)
+	d.Phase2Lifetime = types.StringPointerValue(r.Phase2Lifetime)
+	d.Phase2DHGroupNumber = types.Int64PointerValue(r.Phase2DhGroupNumber)
+	d.Phase2IntegrityAlgorithm = types.StringPointerValue(r.Phase2IntegrityAlgorithm)
+	d.Phase2EncryptionAlgorithm = types.StringPointerValue(r.Phase2EncryptionAlgorithm)
 	kawaiiIPSecModelToIngressRules(ctx, r, d)
 }
 
