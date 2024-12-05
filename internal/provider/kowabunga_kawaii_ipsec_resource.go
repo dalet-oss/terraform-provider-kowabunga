@@ -45,10 +45,11 @@ type KawaiiIPSecConnectionResourceModel struct {
 
 	KawaiiID                  types.String `tfsdk:"kawaii_id"`
 	Name                      types.String `tfsdk:"name"`
+	IP                        types.String `tfsdk:"ip"`
 	PreSharedKey              types.String `tfsdk:"pre_shared_key"`
 	RemotePeer                types.String `tfsdk:"remote_peer"`
 	RemoteSubnet              types.String `tfsdk:"remote_subnet"`
-	DpdTimeout                types.Int64  `tfsdk:"dpd_timeout"`
+	DpdTimeout                types.String `tfsdk:"dpd_timeout"`
 	DpdTimeoutAction          types.String `tfsdk:"dpd_action"`
 	StartAction               types.String `tfsdk:"start_action"`
 	Rekey                     types.String `tfsdk:"rekey"`
@@ -111,6 +112,13 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Kawaii list of Kowabunga IPSec Connections",
 		Attributes: map[string]schema.Attribute{
+			KeyIP: schema.StringAttribute{
+				MarkdownDescription: "The IPSec IP",
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			KeyKawaiiID: schema.StringAttribute{
 				MarkdownDescription: "Associated Kawaii ID",
 				Required:            true,
@@ -140,29 +148,33 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 					&stringNetworkAddressValidator{},
 				},
 			},
-			KeyIPSecDpdTimeout: schema.Int64Attribute{
-				MarkdownDescription: "Dead Peer Detection Timeout in seconds. Default is 240",
+			KeyIPSecDpdTimeout: schema.StringAttribute{
+				MarkdownDescription: "Dead Peer Detection Timeout. Default is 240s",
 				Required:            false,
 				Optional:            true,
 				Computed:            true,
+				Default:             stringdefault.StaticString("240s"),
 			},
 			KeyIPSecDpdAction: schema.StringAttribute{
 				MarkdownDescription: "Dead Peer Detection Timeout Action. Default is `restart`",
 				Required:            false,
 				Optional:            true,
 				Computed:            true,
+				Default:             stringdefault.StaticString("restart"),
 			},
 			KeyIPSecStartAction: schema.StringAttribute{
 				MarkdownDescription: "IPSEC Default Start Action. Default is `start`",
 				Required:            false,
 				Optional:            true,
 				Computed:            true,
+				Default:             stringdefault.StaticString("start"),
 			},
 			KeyIPSecRekeyTime: schema.StringAttribute{
 				MarkdownDescription: "IPSec Rekey time in seconds. Default is `2h`",
 				Required:            false,
 				Optional:            true,
 				Computed:            true,
+				Default:             stringdefault.StaticString("2h"),
 				Validators: []validator.String{
 					&stringDurationValidator{},
 				},
@@ -172,6 +184,7 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 				Required:            false,
 				Optional:            true,
 				Computed:            true,
+				Default:             stringdefault.StaticString("1h"),
 				Validators: []validator.String{
 					&stringDurationValidator{},
 				},
@@ -202,12 +215,13 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 				Required:            false,
 				Optional:            true,
 				Computed:            true,
+				Default:             stringdefault.StaticString("1h"),
 				Validators: []validator.String{
 					&stringDurationValidator{},
 				},
 			},
 			KeyIPSecP2DHGroupNumber: schema.Int64Attribute{
-				MarkdownDescription: "Remote Subnet",
+				MarkdownDescription: "IPSec phase 2 Diffie Hellman IANA Group Number. Allowed Values are [2, 5, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]",
 				Required:            true,
 				Validators: []validator.Int64{
 					&diffieHellmanAlgorithmTypeValidator{},
@@ -247,12 +261,25 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 func kawaiiIPSecResourceModel(ctx *context.Context, d *KawaiiIPSecConnectionResourceModel) sdk.KawaiiIpSec {
 
 	return sdk.KawaiiIpSec{
-		Name:         d.Name.ValueString(),
-		Description:  d.Desc.ValueStringPointer(),
-		RemoteIp:     d.RemotePeer.ValueString(),
-		RemoteSubnet: d.RemoteSubnet.ValueString(),
-		PreSharedKey: d.PreSharedKey.ValueString(),
-		Firewall:     kawaiiIPSecFirewallModel(ctx, d),
+		Name:                      d.Name.ValueString(),
+		Ip:                        d.IP.ValueStringPointer(),
+		Description:               d.Desc.ValueStringPointer(),
+		RemoteIp:                  d.RemotePeer.ValueString(),
+		RemoteSubnet:              d.RemoteSubnet.ValueString(),
+		PreSharedKey:              d.PreSharedKey.ValueString(),
+		DpdTimeoutAction:          d.DpdTimeoutAction.ValueStringPointer(),
+		DpdTimeout:                d.DpdTimeout.ValueStringPointer(),
+		StartAction:               d.StartAction.ValueStringPointer(),
+		RekeyTime:                 d.Rekey.ValueStringPointer(),
+		Phase1Lifetime:            d.Phase1Lifetime.ValueStringPointer(),
+		Phase1DhGroupNumber:       d.Phase1DHGroupNumber.ValueInt64Pointer(),
+		Phase1IntegrityAlgorithm:  d.Phase1IntegrityAlgorithm.ValueStringPointer(),
+		Phase1EncryptionAlgorithm: d.Phase1EncryptionAlgorithm.ValueStringPointer(),
+		Phase2Lifetime:            d.Phase2Lifetime.ValueStringPointer(),
+		Phase2DhGroupNumber:       d.Phase2DHGroupNumber.ValueInt64Pointer(),
+		Phase2IntegrityAlgorithm:  d.Phase2IntegrityAlgorithm.ValueStringPointer(),
+		Phase2EncryptionAlgorithm: d.Phase2EncryptionAlgorithm.ValueStringPointer(),
+		Firewall:                  kawaiiIPSecFirewallModel(ctx, d),
 	}
 }
 
@@ -333,6 +360,7 @@ func kawaiiIPSecModelToResource(ctx *context.Context, r *sdk.KawaiiIpSec, d *Kaw
 		return
 	}
 	d.Name = types.StringValue(r.Name)
+	d.IP = types.StringPointerValue(r.Ip)
 	d.RemotePeer = types.StringValue(r.RemoteIp)
 	d.RemoteSubnet = types.StringValue(r.RemoteSubnet)
 	d.PreSharedKey = types.StringValue(r.PreSharedKey)
@@ -342,7 +370,7 @@ func kawaiiIPSecModelToResource(ctx *context.Context, r *sdk.KawaiiIpSec, d *Kaw
 		d.Desc = types.StringValue("")
 	}
 	d.DpdTimeoutAction = types.StringPointerValue(r.DpdTimeoutAction)
-	d.DpdTimeout = types.Int64PointerValue(r.DpdTimeoutSeconds)
+	d.DpdTimeout = types.StringPointerValue(r.DpdTimeout)
 	d.StartAction = types.StringPointerValue(r.StartAction)
 	d.Rekey = types.StringPointerValue(r.RekeyTime)
 	d.Phase1Lifetime = types.StringPointerValue(r.Phase1Lifetime)
