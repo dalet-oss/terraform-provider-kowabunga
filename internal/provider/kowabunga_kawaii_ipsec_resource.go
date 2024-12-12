@@ -272,13 +272,13 @@ func kawaiiIPSecResourceModel(ctx *context.Context, d *KawaiiIPSecConnectionReso
 		StartAction:               d.StartAction.ValueStringPointer(),
 		RekeyTime:                 d.Rekey.ValueStringPointer(),
 		Phase1Lifetime:            d.Phase1Lifetime.ValueStringPointer(),
-		Phase1DhGroupNumber:       d.Phase1DHGroupNumber.ValueInt64Pointer(),
-		Phase1IntegrityAlgorithm:  d.Phase1IntegrityAlgorithm.ValueStringPointer(),
-		Phase1EncryptionAlgorithm: d.Phase1EncryptionAlgorithm.ValueStringPointer(),
+		Phase1DhGroupNumber:       d.Phase1DHGroupNumber.ValueInt64(),
+		Phase1IntegrityAlgorithm:  d.Phase1IntegrityAlgorithm.ValueString(),
+		Phase1EncryptionAlgorithm: d.Phase1EncryptionAlgorithm.ValueString(),
 		Phase2Lifetime:            d.Phase2Lifetime.ValueStringPointer(),
-		Phase2DhGroupNumber:       d.Phase2DHGroupNumber.ValueInt64Pointer(),
-		Phase2IntegrityAlgorithm:  d.Phase2IntegrityAlgorithm.ValueStringPointer(),
-		Phase2EncryptionAlgorithm: d.Phase2EncryptionAlgorithm.ValueStringPointer(),
+		Phase2DhGroupNumber:       d.Phase2DHGroupNumber.ValueInt64(),
+		Phase2IntegrityAlgorithm:  d.Phase2IntegrityAlgorithm.ValueString(),
+		Phase2EncryptionAlgorithm: d.Phase2EncryptionAlgorithm.ValueString(),
 		Firewall:                  kawaiiIPSecFirewallModel(ctx, d),
 	}
 }
@@ -374,13 +374,13 @@ func kawaiiIPSecModelToResource(ctx *context.Context, r *sdk.KawaiiIpSec, d *Kaw
 	d.StartAction = types.StringPointerValue(r.StartAction)
 	d.Rekey = types.StringPointerValue(r.RekeyTime)
 	d.Phase1Lifetime = types.StringPointerValue(r.Phase1Lifetime)
-	d.Phase1DHGroupNumber = types.Int64PointerValue(r.Phase1DhGroupNumber)
-	d.Phase1IntegrityAlgorithm = types.StringPointerValue(r.Phase1IntegrityAlgorithm)
-	d.Phase1EncryptionAlgorithm = types.StringPointerValue(r.Phase1EncryptionAlgorithm)
+	d.Phase1DHGroupNumber = types.Int64Value(r.Phase1DhGroupNumber)
+	d.Phase1IntegrityAlgorithm = types.StringValue(r.Phase1IntegrityAlgorithm)
+	d.Phase1EncryptionAlgorithm = types.StringValue(r.Phase1EncryptionAlgorithm)
 	d.Phase2Lifetime = types.StringPointerValue(r.Phase2Lifetime)
-	d.Phase2DHGroupNumber = types.Int64PointerValue(r.Phase2DhGroupNumber)
-	d.Phase2IntegrityAlgorithm = types.StringPointerValue(r.Phase2IntegrityAlgorithm)
-	d.Phase2EncryptionAlgorithm = types.StringPointerValue(r.Phase2EncryptionAlgorithm)
+	d.Phase2DHGroupNumber = types.Int64Value(r.Phase2DhGroupNumber)
+	d.Phase2IntegrityAlgorithm = types.StringValue(r.Phase2IntegrityAlgorithm)
+	d.Phase2EncryptionAlgorithm = types.StringValue(r.Phase2EncryptionAlgorithm)
 	kawaiiIPSecModelToIngressRules(ctx, r, d)
 }
 
