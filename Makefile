@@ -8,6 +8,9 @@ GOVULNCHECK_VERSION = v1.1.3
 GOLINT = $(BINDIR)/golangci-lint
 GOLINT_VERSION = v1.62.2
 
+GOSEC = $(BINDIR)/gosec
+GOSEC_VERSION = v2.21.4
+
 V = 0
 Q = $(if $(filter 1,$V),,@)
 M = $(shell printf "\033[34;1m▶\033[0m")
@@ -44,6 +47,14 @@ get-govulncheck: ; $(info $(M) downloading govulncheck…) @
 .PHONY: vuln
 vuln: get-govulncheck ; $(info $(M) running govulncheck…) @ ## Check for known vulnerabilities
 	$Q $(GOVULNCHECK) ./... ; exit 0
+
+.PHONY: get-gosec
+get-gosec: ; $(info $(M) downloading gosec…) @
+	$Q test -x $(GOSEC) || GOBIN="$(PWD)/$(BINDIR)/" go install github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
+
+.PHONY: sec
+sec: get-gosec ; $(info $(M) running gosec…) @ ## AST / SSA code checks
+	$Q $(GOSEC) -terse -exclude=G101,G115 ./... ; exit 0
 
 .PHONY: vet
 vet: ; $(info $(M) running vetter…) @
