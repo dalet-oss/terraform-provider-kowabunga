@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"maps"
 
 	sdk "github.com/dalet-oss/kowabunga-api/sdk/go"
@@ -21,24 +22,30 @@ import (
 )
 
 const (
-	KawaiiIPSecResourceName = "kawaii_ipsec"
+	KawaiiIPsecResourceName = "kawaii_ipsec"
 
-	KawaiiIPSecDefaultValueProtocol      = "tcp"
-	KawaiiIPSecDefaultValueIngressPolicy = "accept"
+	KawaiiIPsecDefaultValueIngressProtocol = "tcp"
+	KawaiiIPsecDefaultValueIngressPolicy   = "accept"
+
+	KawaiiIPsecDefaultDpdTimeout    = "240s"
+	KawaiiIPsecDefaultDpdAction     = "restart"
+	KawaiiIPsecDefaultStartAction   = "start"
+	KawaiiIPsecDefaultRekeyTime     = "2h"
+	KawaiiIPsecDefaultPhaseLifetime = "1h"
 )
 
 var _ resource.Resource = &KawaiiResource{}
-var _ resource.ResourceWithImportState = &KawaiiIPSecConnectionResource{}
+var _ resource.ResourceWithImportState = &KawaiiIPsecConnectionResource{}
 
-func NewKawaiiIPSecResource() resource.Resource {
-	return &KawaiiIPSecConnectionResource{}
+func NewKawaiiIPsecResource() resource.Resource {
+	return &KawaiiIPsecConnectionResource{}
 }
 
-type KawaiiIPSecConnectionResource struct {
+type KawaiiIPsecConnectionResource struct {
 	Data *KowabungaProviderData
 }
 
-type KawaiiIPSecConnectionResourceModel struct {
+type KawaiiIPsecConnectionResourceModel struct {
 	ID       types.String   `tfsdk:"id"`
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Desc     types.String   `tfsdk:"desc"`
@@ -64,19 +71,19 @@ type KawaiiIPSecConnectionResourceModel struct {
 	IngressRules              types.List   `tfsdk:"ingress_rules"` // KawaiiForwardRule
 }
 
-func (r *KawaiiIPSecConnectionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resourceMetadata(req, resp, KawaiiIPSecResourceName)
+func (r *KawaiiIPsecConnectionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resourceMetadata(req, resp, KawaiiIPsecResourceName)
 }
 
-func (r *KawaiiIPSecConnectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *KawaiiIPsecConnectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resourceImportState(ctx, req, resp)
 }
 
-func (r *KawaiiIPSecConnectionResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *KawaiiIPsecConnectionResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.Data = resourceConfigure(req, resp)
 }
 
-func (r *KawaiiIPSecConnectionResource) SchemaIngressRule() schema.NestedAttributeObject {
+func (r *KawaiiIPsecConnectionResource) SchemaIngressRule() schema.NestedAttributeObject {
 	return schema.NestedAttributeObject{
 		Attributes: map[string]schema.Attribute{
 			KeySource: schema.StringAttribute{
@@ -92,7 +99,7 @@ func (r *KawaiiIPSecConnectionResource) SchemaIngressRule() schema.NestedAttribu
 				MarkdownDescription: "The transport layer protocol to forward public traffic to (defaults to 'tcp')",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString(KawaiiIPSecDefaultValueProtocol),
+				Default:             stringdefault.StaticString(KawaiiIPsecDefaultValueIngressProtocol),
 				Validators: []validator.String{
 					&stringNetworkProtocolValidator{},
 				},
@@ -108,26 +115,26 @@ func (r *KawaiiIPSecConnectionResource) SchemaIngressRule() schema.NestedAttribu
 	}
 }
 
-func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *KawaiiIPsecConnectionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Kawaii list of Kowabunga IPSec Connections",
+		MarkdownDescription: "Kawaii list of Kowabunga IPsec Connections",
 		Attributes: map[string]schema.Attribute{
 			KeyIP: schema.StringAttribute{
-				MarkdownDescription: "The IPSec IP",
+				MarkdownDescription: "The local IPsec IP (read-only)",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			KeyKawaiiID: schema.StringAttribute{
-				MarkdownDescription: "Associated Kawaii ID",
+			KeyKawaii: schema.StringAttribute{
+				MarkdownDescription: "Associated Kawaii name or ID",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			KeyName: schema.StringAttribute{
-				MarkdownDescription: "Kowabunga IPSec Connection Name",
+				MarkdownDescription: "Kowabunga IPsec Connection Name",
 				Required:            true,
 			},
 			KeyRemotePeer: schema.StringAttribute{
@@ -142,100 +149,94 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 				Required:            true,
 			},
 			KeyRemoteSubnet: schema.StringAttribute{
-				MarkdownDescription: "Remote Subnet",
+				MarkdownDescription: "Remote Subnet CIDR",
 				Required:            true,
 				Validators: []validator.String{
 					&stringNetworkAddressValidator{},
 				},
 			},
-			KeyIPSecDpdTimeout: schema.StringAttribute{
-				MarkdownDescription: "Dead Peer Detection Timeout. Default is 240s",
-				Required:            false,
+			KeyIPsecDpdTimeout: schema.StringAttribute{
+				MarkdownDescription: fmt.Sprintf("Dead Peer Detection Timeout. Default is `%s`", KawaiiIPsecDefaultDpdTimeout),
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("240s"),
+				Default:             stringdefault.StaticString(KawaiiIPsecDefaultDpdTimeout),
 			},
-			KeyIPSecDpdAction: schema.StringAttribute{
-				MarkdownDescription: "Dead Peer Detection Timeout Action. Default is `restart`",
-				Required:            false,
+			KeyIPsecDpdAction: schema.StringAttribute{
+				MarkdownDescription: fmt.Sprintf("Dead Peer Detection Timeout Action. Default is `%s`", KawaiiIPsecDefaultDpdAction),
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("restart"),
+				Default:             stringdefault.StaticString(KawaiiIPsecDefaultDpdAction),
 			},
-			KeyIPSecStartAction: schema.StringAttribute{
-				MarkdownDescription: "IPSEC Default Start Action. Default is `start`",
-				Required:            false,
+			KeyIPsecStartAction: schema.StringAttribute{
+				MarkdownDescription: fmt.Sprintf("IPsec Default Start Action. Default is `%s`", KawaiiIPsecDefaultStartAction),
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("start"),
+				Default:             stringdefault.StaticString(KawaiiIPsecDefaultStartAction),
 			},
-			KeyIPSecRekeyTime: schema.StringAttribute{
-				MarkdownDescription: "IPSec Rekey time in seconds. Default is `2h`",
-				Required:            false,
+			KeyIPsecRekeyTime: schema.StringAttribute{
+				MarkdownDescription: fmt.Sprintf("IPsec Rekey time in seconds. Default is `%s`", KawaiiIPsecDefaultRekeyTime),
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("2h"),
+				Default:             stringdefault.StaticString(KawaiiIPsecDefaultRekeyTime),
 				Validators: []validator.String{
 					&stringDurationValidator{},
 				},
 			},
-			KeyIPSecP1Lifetime: schema.StringAttribute{
-				MarkdownDescription: "IPSec Phase 1 Lifetime. Use s, m, h and d suffixes. Default is `1h`",
-				Required:            false,
+			KeyIPsecP1Lifetime: schema.StringAttribute{
+				MarkdownDescription: fmt.Sprintf("IPsec Phase 1 Lifetime. Use s, m, h and d suffixes. Default is `%s`", KawaiiIPsecDefaultPhaseLifetime),
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("1h"),
+				Default:             stringdefault.StaticString(KawaiiIPsecDefaultPhaseLifetime),
 				Validators: []validator.String{
 					&stringDurationValidator{},
 				},
 			},
-			KeyIPSecP1DHGroupNumber: schema.Int64Attribute{
-				MarkdownDescription: "IPSec phase 1 Diffie Hellman IANA Group Number. Allowed Values are [2, 5, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]",
+			KeyIPsecP1DHGroupNumber: schema.Int64Attribute{
+				MarkdownDescription: "IPsec phase 1 Diffie Hellman IANA Group Number. Valid values are `2 | 5 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24`",
 				Required:            true,
 				Validators: []validator.Int64{
 					&diffieHellmanAlgorithmTypeValidator{},
 				},
 			},
-			KeyIPSecP1IntegrityAlgorithm: schema.StringAttribute{
-				MarkdownDescription: "IPSec phase 1 Integrity Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+			KeyIPsecP1IntegrityAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPsec phase 1 Integrity Algorithm. Valid values are `SHA1 | SHA2-256 | SHA2-384 | SHA2-512`",
 				Required:            true,
 				Validators: []validator.String{
 					&integrityAlgorithmTypeValidator{},
 				},
 			},
-			KeyIPSecP1EncryptionAlgorithm: schema.StringAttribute{
-				MarkdownDescription: "IPSec phase 1 Encryption Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+			KeyIPsecP1EncryptionAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPsec phase 1 Encryption Algorithm. Valid values are `AES128 | AES256 | CAMELLIA128 | CAMELLIA256`",
 				Required:            true,
 				Validators: []validator.String{
 					&encryptionAlgorithmTypeValidator{},
 				},
 			},
-			KeyIPSecP2Lifetime: schema.StringAttribute{
-				MarkdownDescription: "IPSec Phase 2 Lifetime. Use s, m, h and d suffixes. Default is `1h`",
-				Required:            false,
+			KeyIPsecP2Lifetime: schema.StringAttribute{
+				MarkdownDescription: fmt.Sprintf("IPsec Phase 2 Lifetime. Use s, m, h and d suffixes. Default is `%s`", KawaiiIPsecDefaultPhaseLifetime),
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("1h"),
+				Default:             stringdefault.StaticString(KawaiiIPsecDefaultPhaseLifetime),
 				Validators: []validator.String{
 					&stringDurationValidator{},
 				},
 			},
-			KeyIPSecP2DHGroupNumber: schema.Int64Attribute{
-				MarkdownDescription: "IPSec phase 2 Diffie Hellman IANA Group Number. Allowed Values are [2, 5, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]",
+			KeyIPsecP2DHGroupNumber: schema.Int64Attribute{
+				MarkdownDescription: "IPsec phase 2 Diffie Hellman IANA Group Number. Valid values are `2 | 5 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24`",
 				Required:            true,
 				Validators: []validator.Int64{
 					&diffieHellmanAlgorithmTypeValidator{},
 				},
 			},
-			KeyIPSecP2IntegrityAlgorithm: schema.StringAttribute{
-				MarkdownDescription: "IPSec phase 1 Integrity Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+			KeyIPsecP2IntegrityAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPsec phase 1 Integrity Algorithm. Valid values are `SHA1 | SHA2-256 | SHA2-384 | SHA2-512`",
 				Required:            true,
 				Validators: []validator.String{
 					&integrityAlgorithmTypeValidator{},
 				},
 			},
-			KeyIPSecP2EncryptionAlgorithm: schema.StringAttribute{
-				MarkdownDescription: "IPSec phase 1 Encryption Algorithm. Allowed values are ['SHA1', 'SHA2-256', 'SHA2-384', 'SHA2-512']",
+			KeyIPsecP2EncryptionAlgorithm: schema.StringAttribute{
+				MarkdownDescription: "IPsec phase 1 Encryption Algorithm. Valid values are `AES128 | AES256 | CAMELLIA128 | CAMELLIA256`",
 				Required:            true,
 				Validators: []validator.String{
 					&encryptionAlgorithmTypeValidator{},
@@ -256,9 +257,9 @@ func (r *KawaiiIPSecConnectionResource) Schema(ctx context.Context, req resource
 }
 
 // ////////////////////////////////////////////////////////////////////
-// converts kawai Ipsec from Terraform model to Kowabunga API model //
+// converts kawaii Ipsec from Terraform model to Kowabunga API model //
 // ////////////////////////////////////////////////////////////////////
-func kawaiiIPSecResourceModel(ctx *context.Context, d *KawaiiIPSecConnectionResourceModel) sdk.KawaiiIpSec {
+func kawaiiIPsecResourceModel(ctx *context.Context, d *KawaiiIPsecConnectionResourceModel) sdk.KawaiiIpSec {
 
 	return sdk.KawaiiIpSec{
 		Name:                      d.Name.ValueString(),
@@ -279,11 +280,11 @@ func kawaiiIPSecResourceModel(ctx *context.Context, d *KawaiiIPSecConnectionReso
 		Phase2DhGroupNumber:       d.Phase2DHGroupNumber.ValueInt64(),
 		Phase2IntegrityAlgorithm:  d.Phase2IntegrityAlgorithm.ValueString(),
 		Phase2EncryptionAlgorithm: d.Phase2EncryptionAlgorithm.ValueString(),
-		Firewall:                  kawaiiIPSecFirewallModel(ctx, d),
+		Firewall:                  kawaiiIPsecFirewallModel(ctx, d),
 	}
 }
 
-func kawaiiIPSecFirewallModel(ctx *context.Context, d *KawaiiIPSecConnectionResourceModel) sdk.KawaiiFirewall {
+func kawaiiIPsecFirewallModel(ctx *context.Context, d *KawaiiIPsecConnectionResourceModel) sdk.KawaiiFirewall {
 	fwModel := sdk.KawaiiFirewall{
 		Ingress: []sdk.KawaiiFirewallIngressRule{},
 	}
@@ -318,10 +319,10 @@ func kawaiiIPSecFirewallModel(ctx *context.Context, d *KawaiiIPSecConnectionReso
 }
 
 /////////////////////////////////////////////////////////////////
-// converts kawaii from Kowabunga API model to Terraform model //
+// converts Kawaii from Kowabunga API model to Terraform model //
 /////////////////////////////////////////////////////////////////
 
-func kawaiiIPSecModelToIngressRules(ctx *context.Context, r *sdk.KawaiiIpSec, d *KawaiiIPSecConnectionResourceModel) {
+func kawaiiIPsecModelToIngressRules(ctx *context.Context, r *sdk.KawaiiIpSec, d *KawaiiIPsecConnectionResourceModel) {
 	// ingress rules
 	ingressRules := []attr.Value{}
 	ingressRuleType := map[string]attr.Type{
@@ -355,12 +356,16 @@ func kawaiiIPSecModelToIngressRules(ctx *context.Context, r *sdk.KawaiiIpSec, d 
 	}
 }
 
-func kawaiiIPSecModelToResource(ctx *context.Context, r *sdk.KawaiiIpSec, d *KawaiiIPSecConnectionResourceModel) {
+func kawaiiIPsecModelToResource(ctx *context.Context, r *sdk.KawaiiIpSec, d *KawaiiIPsecConnectionResourceModel) {
 	if r == nil {
 		return
 	}
 	d.Name = types.StringValue(r.Name)
-	d.IP = types.StringPointerValue(r.Ip)
+	if r.Ip != nil {
+		d.IP = types.StringPointerValue(r.Ip)
+	} else {
+		d.IP = types.StringValue("")
+	}
 	d.RemotePeer = types.StringValue(r.RemoteIp)
 	d.RemoteSubnet = types.StringValue(r.RemoteSubnet)
 	d.PreSharedKey = types.StringValue(r.PreSharedKey)
@@ -369,27 +374,51 @@ func kawaiiIPSecModelToResource(ctx *context.Context, r *sdk.KawaiiIpSec, d *Kaw
 	} else {
 		d.Desc = types.StringValue("")
 	}
-	d.DpdTimeoutAction = types.StringPointerValue(r.DpdTimeoutAction)
-	d.DpdTimeout = types.StringPointerValue(r.DpdTimeout)
-	d.StartAction = types.StringPointerValue(r.StartAction)
-	d.Rekey = types.StringPointerValue(r.RekeyTime)
-	d.Phase1Lifetime = types.StringPointerValue(r.Phase1Lifetime)
+	if r.DpdTimeoutAction != nil {
+		d.DpdTimeoutAction = types.StringPointerValue(r.DpdTimeoutAction)
+	} else {
+		d.DpdTimeoutAction = types.StringValue(KawaiiIPsecDefaultDpdTimeout)
+	}
+	if r.DpdTimeout != nil {
+		d.DpdTimeout = types.StringPointerValue(r.DpdTimeout)
+	} else {
+		d.DpdTimeout = types.StringValue(KawaiiIPsecDefaultDpdAction)
+	}
+	if r.StartAction != nil {
+		d.StartAction = types.StringPointerValue(r.StartAction)
+	} else {
+		d.StartAction = types.StringValue(KawaiiIPsecDefaultStartAction)
+	}
+	if r.RekeyTime != nil {
+		d.Rekey = types.StringPointerValue(r.RekeyTime)
+	} else {
+		d.Rekey = types.StringValue(KawaiiIPsecDefaultRekeyTime)
+	}
+	if r.Phase1Lifetime != nil {
+		d.Phase1Lifetime = types.StringPointerValue(r.Phase1Lifetime)
+	} else {
+		d.Phase1Lifetime = types.StringValue(KawaiiIPsecDefaultPhaseLifetime)
+	}
 	d.Phase1DHGroupNumber = types.Int64Value(r.Phase1DhGroupNumber)
 	d.Phase1IntegrityAlgorithm = types.StringValue(r.Phase1IntegrityAlgorithm)
 	d.Phase1EncryptionAlgorithm = types.StringValue(r.Phase1EncryptionAlgorithm)
-	d.Phase2Lifetime = types.StringPointerValue(r.Phase2Lifetime)
+	if r.Phase2Lifetime != nil {
+		d.Phase2Lifetime = types.StringPointerValue(r.Phase2Lifetime)
+	} else {
+		d.Phase2Lifetime = types.StringValue(KawaiiIPsecDefaultPhaseLifetime)
+	}
 	d.Phase2DHGroupNumber = types.Int64Value(r.Phase2DhGroupNumber)
 	d.Phase2IntegrityAlgorithm = types.StringValue(r.Phase2IntegrityAlgorithm)
 	d.Phase2EncryptionAlgorithm = types.StringValue(r.Phase2EncryptionAlgorithm)
-	kawaiiIPSecModelToIngressRules(ctx, r, d)
+	kawaiiIPsecModelToIngressRules(ctx, r, d)
 }
 
 //////////////////////////////
 // Terraform CRUD Functions //
 //////////////////////////////
 
-func (r *KawaiiIPSecConnectionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *KawaiiIPSecConnectionResourceModel
+func (r *KawaiiIPsecConnectionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *KawaiiIPsecConnectionResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
@@ -413,21 +442,21 @@ func (r *KawaiiIPSecConnectionResource) Create(ctx context.Context, req resource
 		errorCreateGeneric(resp, err)
 		return
 	}
-	// create a new Kawaii IpSec Connection
-	m := kawaiiIPSecResourceModel(&ctx, data)
+	// create a new Kawaii IPsec Connection
+	m := kawaiiIPsecResourceModel(&ctx, data)
 	kawaiiIpSec, _, err := r.Data.K.KawaiiAPI.CreateKawaiiIpSec(ctx, kawaiiId).KawaiiIpSec(m).Execute()
 	if err != nil {
 		errorCreateGeneric(resp, err)
 		return
 	}
 	data.ID = types.StringPointerValue(kawaiiIpSec.Id)
-	kawaiiIPSecModelToResource(&ctx, kawaiiIpSec, data) // read back resulting object
-	tflog.Trace(ctx, "created Kawaii IPSec Tunnel resource")
+	kawaiiIPsecModelToResource(&ctx, kawaiiIpSec, data) // read back resulting object
+	tflog.Trace(ctx, "created Kawaii IPsec Tunnel resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KawaiiIPSecConnectionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *KawaiiIPSecConnectionResourceModel
+func (r *KawaiiIPsecConnectionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *KawaiiIPsecConnectionResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -450,12 +479,12 @@ func (r *KawaiiIPSecConnectionResource) Read(ctx context.Context, req resource.R
 		return
 	}
 
-	kawaiiIPSecModelToResource(&ctx, kawaiiIpSec, data)
+	kawaiiIPsecModelToResource(&ctx, kawaiiIpSec, data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KawaiiIPSecConnectionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data *KawaiiIPSecConnectionResourceModel
+func (r *KawaiiIPsecConnectionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *KawaiiIPsecConnectionResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -472,7 +501,7 @@ func (r *KawaiiIPSecConnectionResource) Update(ctx context.Context, req resource
 	r.Data.Mutex.Lock()
 	defer r.Data.Mutex.Unlock()
 
-	m := kawaiiIPSecResourceModel(&ctx, data)
+	m := kawaiiIPsecResourceModel(&ctx, data)
 	_, _, err := r.Data.K.KawaiiAPI.UpdateKawaiiIpSec(ctx, data.KawaiiID.ValueString(), data.ID.ValueString()).KawaiiIpSec(m).Execute()
 	if err != nil {
 		errorUpdateGeneric(resp, err)
@@ -482,8 +511,8 @@ func (r *KawaiiIPSecConnectionResource) Update(ctx context.Context, req resource
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *KawaiiIPSecConnectionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data *KawaiiIPSecConnectionResourceModel
+func (r *KawaiiIPsecConnectionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *KawaiiIPsecConnectionResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return

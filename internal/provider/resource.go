@@ -119,23 +119,23 @@ const (
 	KeyEndpoints                  = "endpoints"
 	KeyBackendPort                = "backend_port"
 	KeyBackendIPs                 = "backend_ips"
-	KeyIPSecConnections           = "ipsec_connections"
+	KeyIPsecConnections           = "ipsec_connections"
 	KeyRemotePeer                 = "remote_peer"
 	KeyRemoteSubnet               = "remote_subnet"
 	KeyPreSharedKey               = "pre_shared_key"
-	KeyKawaiiID                   = "kawaii_id"
-	KeyIPSecDpdTimeout            = "dpd_timeout"
-	KeyIPSecDpdAction             = "dpd_action"
-	KeyIPSecStartAction           = "start_action"
-	KeyIPSecRekeyTime             = "rekey"
-	KeyIPSecP1Lifetime            = "phase1_lifetime"
-	KeyIPSecP1DHGroupNumber       = "phase1_dh_group_number"
-	KeyIPSecP1IntegrityAlgorithm  = "phase1_integrity_algorithm"
-	KeyIPSecP1EncryptionAlgorithm = "phase1_encryption_algorithm"
-	KeyIPSecP2Lifetime            = "phase2_lifetime"
-	KeyIPSecP2DHGroupNumber       = "phase2_dh_group_number"
-	KeyIPSecP2IntegrityAlgorithm  = "phase2_integrity_algorithm"
-	KeyIPSecP2EncryptionAlgorithm = "phase2_encryption_algorithm"
+	KeyKawaii                     = "kawaii"
+	KeyIPsecDpdTimeout            = "dpd_timeout"
+	KeyIPsecDpdAction             = "dpd_action"
+	KeyIPsecStartAction           = "start_action"
+	KeyIPsecRekeyTime             = "rekey"
+	KeyIPsecP1Lifetime            = "phase1_lifetime"
+	KeyIPsecP1DHGroupNumber       = "phase1_dh_group_number"
+	KeyIPsecP1IntegrityAlgorithm  = "phase1_integrity_algorithm"
+	KeyIPsecP1EncryptionAlgorithm = "phase1_encryption_algorithm"
+	KeyIPsecP2Lifetime            = "phase2_lifetime"
+	KeyIPsecP2DHGroupNumber       = "phase2_dh_group_number"
+	KeyIPsecP2IntegrityAlgorithm  = "phase2_integrity_algorithm"
+	KeyIPsecP2EncryptionAlgorithm = "phase2_encryption_algorithm"
 )
 
 const (
@@ -153,15 +153,16 @@ const (
 	ErrorGeneric              = "Kowabunga Error"
 	ErrorUnconfiguredResource = "Unexpected Resource Configure Type"
 	ErrorExpectedProviderData = "Expected *KowabungaProviderData, got: %T."
-	ErrorUnknownRegion        = "Unknown region"
-	ErrorUnknownZone          = "Unknown zone"
-	ErrorUnknownVNet          = "Unknown virtual network"
-	ErrorUnknownSubnet        = "Unknown subnet"
-	ErrorUnknownProject       = "Unknown project"
-	ErrorUnknownPool          = "Unknown storage pool"
-	ErrorUnknownNfs           = "Unknown NFS storage"
-	ErrorUnknownTemplate      = "Unknown volume template"
 	ErrorUnknownKaktus        = "Unknown kaktus node"
+	ErrorUnknownKawaii        = "Unknown kawaii instance"
+	ErrorUnknownNfs           = "Unknown NFS storage"
+	ErrorUnknownProject       = "Unknown project"
+	ErrorUnknownRegion        = "Unknown region"
+	ErrorUnknownPool          = "Unknown storage pool"
+	ErrorUnknownSubnet        = "Unknown subnet"
+	ErrorUnknownVNet          = "Unknown virtual network"
+	ErrorUnknownTemplate      = "Unknown volume template"
+	ErrorUnknownZone          = "Unknown zone"
 )
 
 const (
@@ -436,5 +437,16 @@ func getKawaiiID(ctx context.Context, data *KowabungaProviderData, id string) (s
 	if err == nil {
 		return *kawaii.Id, nil
 	}
-	return "", fmt.Errorf("%s", ErrorUnknownNfs)
+
+	// fall back, it may be a Kawaii name then, finds its associated ID
+	kawaiis, _, err := data.K.KawaiiAPI.ListKawaiis(ctx).Execute()
+	if err == nil {
+		for _, kw := range kawaiis {
+			t, _, err := data.K.KawaiiAPI.ReadKawaii(ctx, kw).Execute()
+			if err == nil && *t.Name == id {
+				return *t.Id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("%s", ErrorUnknownKawaii)
 }
