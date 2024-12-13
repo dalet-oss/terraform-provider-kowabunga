@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
@@ -35,7 +36,7 @@ func (v stringNetworkProtocolValidator) ValidateString(ctx context.Context, req 
 	}
 
 	protocol := req.ConfigValue.ValueString()
-	if !slices.Contains(networkSupportedProtocols, protocol) {
+	if !slices.Contains(networkSupportedProtocols, strings.ToLower(protocol)) {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
 			ValidatorNetworkProtocolErrUnsupported,
