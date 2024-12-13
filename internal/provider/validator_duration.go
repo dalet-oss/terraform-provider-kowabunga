@@ -31,7 +31,7 @@ func (v stringDurationValidator) ValidateString(ctx context.Context, req validat
 
 	match := false
 	match, err := regexp.MatchString("[0-9]+['s'-'m'-'h'-'d']", req.ConfigValue.ValueString())
-	if err != nil || match != false {
+	if err != nil || !match {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
 			ValidatorDurationErrUnsupported,
