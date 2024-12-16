@@ -27,7 +27,7 @@ Kawaii list of Kowabunga IPsec Connections
 - `phase2_integrity_algorithm` (String) IPsec phase 1 Integrity Algorithm. Valid values are `SHA1 | SHA2-256 | SHA2-384 | SHA2-512`
 - `pre_shared_key` (String) The Pre-Shared Key (PSK) to authenticate the VPN tunnel to your peer VPN gateway
 - `remote_peer` (String) Remote VPN Gateway
-- `remote_subnet` (String) Remote Subnet (CIDR notation)
+- `remote_subnet` (String) Remote Subnet CIDR
 
 ### Optional
 

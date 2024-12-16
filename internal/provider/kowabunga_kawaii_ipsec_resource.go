@@ -50,7 +50,7 @@ type KawaiiIPsecConnectionResourceModel struct {
 	Timeouts timeouts.Value `tfsdk:"timeouts"`
 	Desc     types.String   `tfsdk:"desc"`
 
-	KawaiiID                  types.String `tfsdk:"kawaii_id"`
+	KawaiiID                  types.String `tfsdk:"kawaii"`
 	Name                      types.String `tfsdk:"name"`
 	IP                        types.String `tfsdk:"ip"`
 	PreSharedKey              types.String `tfsdk:"pre_shared_key"`
