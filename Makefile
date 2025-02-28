@@ -1,3 +1,7 @@
+# Copyright (c) The Kowabunga Project
+# Apache License, Version 2.0 (see LICENSE or https://www.apache.org/licenses/LICENSE-2.0.txt)
+# SPDX-License-Identifier: Apache-2.0
+
 BINDIR = bin
 BIN = terraform-provider-kowabunga
 LDFLAGS += -X main.version=$$(git describe --always --abbrev=40 --dirty)
