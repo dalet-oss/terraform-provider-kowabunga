@@ -1,7 +1,7 @@
-# Terraform provider for Dalet Kowabunga KVM orchestrator
+# Terraform provider for Kowabunga KVM orchestrator
 
 This is a Terraform provider that lets you:
-- provision resources on Dalet Kowabunga instance
+- provision resources on Kowabunga instance
 
 ## Getting Started
 
@@ -39,4 +39,4 @@ provider "kowabunga" {
 ```
 ## Authors
 
-* Dalet (https://www.dalet.com/)
+* The Kowabunga Project (https://www.kowabunga.cloud/)
