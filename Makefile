@@ -13,7 +13,7 @@ GOLINT = $(BINDIR)/golangci-lint
 GOLINT_VERSION = v1.64.6
 
 GOSEC = $(BINDIR)/gosec
-GOSEC_VERSION = v2.21.4
+GOSEC_VERSION = v2.22.2
 
 V = 0
 Q = $(if $(filter 1,$V),,@)
