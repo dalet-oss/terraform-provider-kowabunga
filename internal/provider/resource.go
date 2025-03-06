@@ -417,15 +417,15 @@ func getNfsID(ctx context.Context, data *KowabungaProviderData, id string) (stri
 	return "", fmt.Errorf("%s", ErrorUnknownNfs)
 }
 
-func getTemplateID(ctx context.Context, data *KowabungaProviderData, id string) (string, error) {
+func getTemplateID(ctx context.Context, data *KowabungaProviderData, id, poolId string) (string, error) {
 	// let's suppose param is a proper template ID
 	template, _, err := data.K.TemplateAPI.ReadTemplate(ctx, id).Execute()
 	if err == nil {
 		return *template.Id, nil
 	}
 
-	// fall back, it may be a template name then, finds its associated ID
-	templates, _, err := data.K.TemplateAPI.ListTemplates(ctx).Execute()
+	// fall back, it may be a template name then, finds its associated ID from pool's templates
+	templates, _, err := data.K.PoolAPI.ListStoragePoolTemplates(ctx, poolId).Execute()
 	if err == nil {
 		for _, tn := range templates {
 			t, _, err := data.K.TemplateAPI.ReadTemplate(ctx, tn).Execute()
