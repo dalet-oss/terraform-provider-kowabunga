@@ -7,7 +7,7 @@ BIN = terraform-provider-kowabunga
 LDFLAGS += -X main.version=$$(git describe --always --abbrev=40 --dirty)
 
 GOVULNCHECK = $(BINDIR)/govulncheck
-GOVULNCHECK_VERSION = v1.1.3
+GOVULNCHECK_VERSION = v1.1.4
 
 GOLINT = $(BINDIR)/golangci-lint
 GOLINT_VERSION = v1.64.6
