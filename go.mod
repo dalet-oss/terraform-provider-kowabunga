@@ -1,6 +1,6 @@
 module github.com/dalet-oss/terraform-provider-kowabunga
 
-go 1.23
+go 1.24
 
 require (
 	github.com/3th1nk/cidr v0.2.0
