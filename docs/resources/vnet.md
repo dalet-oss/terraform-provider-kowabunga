@@ -19,13 +19,13 @@ Manages a virtual network resource
 
 - `interface` (String) Host bridge network interface
 - `name` (String) Resource name
-- `private` (Boolean) Whether the virtual network is private or public. The first virtual network to be created is always considered to be the default one.
 - `region` (String) Associated region name or ID
 - `vlan` (Number) VLAN ID
 
 ### Optional
 
 - `desc` (String) Resource extended description
+- `private` (Boolean) Whether the virtual network is private or public (default: **true**, i.e. private). The first virtual network to be created is always considered to be the default one.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only

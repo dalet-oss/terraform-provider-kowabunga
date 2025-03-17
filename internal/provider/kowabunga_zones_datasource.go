@@ -16,7 +16,7 @@ import (
 
 const (
 	ZonesDataSourceName              = "zones"
-	ZonesDataSourceSchemaDescription = "Data from a zones resource"
+	ZonesDataSourceSchemaDescription = "Data from zones"
 	ZonesDataSourceRegionDescription = "Datasource region"
 	ZonesDataSourceZonesDescription  = "List of Kowabunga zones"
 )
