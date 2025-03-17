@@ -10,11 +10,15 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 const (
-	ZonesDataSourceName = "zones"
+	ZonesDataSourceName              = "zones"
+	ZonesDataSourceSchemaDescription = "Data from a zones resource"
+	ZonesDataSourceRegionDescription = "Datasource region"
+	ZonesDataSourceZonesDescription  = "List of Kowabunga zones"
 )
 
 var _ datasource.DataSource = &ZonesDataSource{}
@@ -29,7 +33,22 @@ type ZonesDataSource struct {
 }
 
 type ZonesDataSourceModel struct {
-	Zones map[string]types.String `tfsdk:"zones"`
+	Region types.String            `tfsdk:"region"`
+	Zones  map[string]types.String `tfsdk:"zones"`
+}
+
+func zonesDatasourceAttributes() map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		KeyRegion: schema.StringAttribute{
+			MarkdownDescription: ZonesDataSourceRegionDescription,
+			Required:            true,
+		},
+		KeyZones: schema.MapAttribute{
+			Computed:            true,
+			MarkdownDescription: ZonesDataSourceZonesDescription,
+			ElementType:         types.StringType,
+		},
+	}
 }
 
 func (d *ZonesDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -41,15 +60,29 @@ func (d *ZonesDataSource) Configure(ctx context.Context, req datasource.Configur
 }
 
 func (d *ZonesDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	datasourceFullSchema(resp, ZonesDataSourceName)
+	resp.Schema = schema.Schema{
+		MarkdownDescription: ZonesDataSourceSchemaDescription,
+		Attributes:          zonesDatasourceAttributes(),
+	}
 }
 
 func (d *ZonesDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var data ZonesDataSourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	d.Data.Mutex.Lock()
 	defer d.Data.Mutex.Unlock()
 
-	zones, _, err := d.Data.K.ZoneAPI.ListZones(ctx).Execute()
+	// find parent region
+	regionId, err := getRegionID(ctx, d.Data, data.Region.ValueString())
+	if err != nil {
+		errorDataSourceReadGeneric(resp, err)
+		return
+	}
+
+	zones, _, err := d.Data.K.RegionAPI.ListRegionZones(ctx, regionId).Execute()
 	if err != nil {
 		errorDataSourceReadGeneric(resp, err)
 		return
