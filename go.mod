@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/3th1nk/cidr v0.2.0
 	github.com/AfterShip/email-verifier v1.4.1
-	github.com/dalet-oss/kowabunga-api v0.52.4
+	github.com/dalet-oss/kowabunga-api v0.52.5
 	github.com/hashicorp/terraform-plugin-docs v0.16.0
 	github.com/hashicorp/terraform-plugin-framework v1.14.1
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.5.0
